@@ -40,7 +40,14 @@
   "dependencies": {
     "node-cache": "^5.1.2"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "redis": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "redis": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.0.0"
   },

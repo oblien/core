@@ -453,3 +453,4 @@ MIT
 - [Website](https://oblien.com)
 - [React Chat Agent](https://npmjs.com/package/react-chat-agent) - Client-side chat component
 - [Agent Sandbox](https://npmjs.com/package/agent-sandbox) - Sandbox SDK
+- [AI smart assets fetch](https://npmjs.com/package/assets-ai) - Assets AI

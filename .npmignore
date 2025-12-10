@@ -1,0 +1,33 @@
+# Source control
+.git/
+.gitignore
+
+# Testing
+tests/
+coverage/
+.nyc_output/
+*.test.js
+
+# Environment
+.env*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+node_modules/
+npm-debug.log*
+
+# Documentation (keep README.md)
+docs/
+
+# Examples (keep in package)
+# examples/ - commented out to include examples

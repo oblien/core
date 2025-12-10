@@ -1,6 +1,6 @@
 {
-  "name": "oblien-core",
-  "version": "1.0.0",
+  "name": "oblien",
+  "version": "1.0.1",
   "description": "Server-side SDK for Oblien AI Platform - Build AI-powered applications with chat, agents, and workflows",
   "main": "index.js",
   "type": "module",
@@ -31,11 +31,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@github.com:oblien/oblien-core.git"
+    "url": "git@github.com:oblien/core.git"
   },
-  "homepage": "https://oblien.com/docs/core-sdk",
+  "homepage": "https://oblien.com/docs/core",
   "bugs": {
-    "url": "https://github.com/oblien/oblien-core/issues"
+    "url": "https://github.com/oblien/core/issues"
   },
   "dependencies": {
     "node-cache": "^5.1.2"

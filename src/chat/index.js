@@ -46,9 +46,10 @@ export class OblienChat {
     }
 
     /**
-     * Create a guest session based on IP
+     * Create a guest session based on IP and fingerprint (dual-layer identification)
      * @param {Object} options - Guest session options
      * @param {string} options.ip - Client IP address
+     * @param {string} [options.fingerprint] - Client fingerprint for identification
      * @param {string} options.agentId - Agent ID to chat with
      * @param {string} [options.workflowId] - Workflow ID
      * @param {Object} [options.metadata] - Additional guest metadata
@@ -56,14 +57,18 @@ export class OblienChat {
      * @returns {Promise<Object>} Session data with token and guest info
      */
     async createGuestSession(options) {
-        const { ip, agentId, workflowId, metadata, workspace } = options;
+        const { ip, fingerprint, agentId, workflowId, metadata = {}, workspace } = options;
 
         if (!ip) {
             throw new Error('IP address is required for guest sessions');
         }
 
-        // Get or create guest user
-        const guest = await this.guestManager.getOrCreateGuest(ip, metadata);
+        // Get or create guest user (handles fingerprint and IP mapping internally)
+        const guest = await this.guestManager.getOrCreateGuest(ip, fingerprint, {
+            ...metadata,
+            fingerprint,
+            ip,
+        });
 
         // Create session
         const session = new ChatSession({
@@ -91,13 +96,35 @@ export class OblienChat {
     }
 
     /**
-     * Get guest by IP
+     * Get guest by IP and/or fingerprint (dual-layer identification)
      * @param {string} ip - IP address
+     * @param {string} [fingerprint] - Client fingerprint (optional)
      * @returns {Promise<Object|null>} Guest object or null
      */
-    async getGuestByIP(ip) {
-        const guestId = this.guestManager.generateGuestId(ip);
-        return await this.guestManager.getGuest(guestId);
+    async getGuest(ip, fingerprint = null) {
+        // Try fingerprint first if provided
+        if (fingerprint) {
+            const guestIdByFingerprint = await this.guestManager.storage.get(`fingerprint:${fingerprint}`);
+            if (guestIdByFingerprint) {
+                const guest = await this.guestManager.getGuest(guestIdByFingerprint);
+                if (guest) return guest;
+            }
+        }
+
+        // Fallback to IP
+        if (ip) {
+            const guestIdByIp = await this.guestManager.storage.get(`ip:${ip}`);
+            if (guestIdByIp) {
+                const guest = await this.guestManager.getGuest(guestIdByIp);
+                if (guest) return guest;
+            }
+            
+            // Fallback to old method (generate guest ID from IP)
+            const fallbackGuestId = this.guestManager.generateGuestId(ip);
+            return await this.guestManager.getGuest(fallbackGuestId);
+        }
+
+        return null;
     }
 
     /**

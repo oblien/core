@@ -1,16 +1,13 @@
 {
   "name": "oblien",
-  "version": "1.0.1",
+  "version": "1.0.5",
   "description": "Server-side SDK for Oblien AI Platform - Build AI-powered applications with chat, agents, and workflows",
   "main": "index.js",
   "type": "module",
   "types": "index.d.ts",
   "exports": {
     ".": "./index.js",
-    "./chat": "./chat.js",
-    "./agents": "./agents.js",
-    "./workflows": "./workflows.js",
-    "./guest": "./src/utils/guest-manager.js"
+    "./chat": "./chat.js"
   },
   "scripts": {
     "test": "node --test tests/**/*.test.js"

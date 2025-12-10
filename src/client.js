@@ -6,22 +6,22 @@
 export class OblienClient {
     /**
      * @param {Object} config - Configuration options
-     * @param {string} config.apiKey - Your Oblien API key
-     * @param {string} [config.apiSecret] - Your Oblien API secret (for server-side)
+     * @param {string} config.apiKey - Your Oblien Client ID (x-client-id)
+     * @param {string} config.apiSecret - Your Oblien Client Secret (x-client-secret)
      * @param {string} [config.baseURL] - Base URL for API (default: https://api.oblien.com)
      * @param {string} [config.version] - API version (default: v1)
      */
     constructor(config) {
         if (!config || !config.apiKey) {
-            throw new Error('Oblien API key is required');
+            throw new Error('Oblien API key (client ID) is required');
+        }
+        if (!config.apiSecret) {
+            throw new Error('Oblien API secret (client secret) is required');
         }
 
-        this.apiKey = config.apiKey;
-        this.apiSecret = config.apiSecret;
+        this.clientId = config.apiKey;
+        this.clientSecret = config.apiSecret;
         this.baseURL = config.baseURL || 'https://api.oblien.com';
-        this.version = config.version || 'v1';
-        this.token = null;
-        this.tokenExpiry = null;
     }
 
     /**
@@ -30,55 +30,18 @@ export class OblienClient {
      */
     _buildURL(path) {
         const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-        return `${this.baseURL}/${this.version}/${cleanPath}`;
-    }
-
-    /**
-     * Authenticate and get access token
-     * @returns {Promise<string>} Access token
-     */
-    async authenticate() {
-        // Check if we have a valid token
-        if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-            return this.token;
-        }
-
-        try {
-            const response = await fetch(this._buildURL('auth/authenticate'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    apiKey: this.apiKey,
-                    apiSecret: this.apiSecret,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Authentication failed');
-            }
-
-            const data = await response.json();
-            this.token = data.token;
-            // Token expires in 1 hour, refresh 5 min before
-            this.tokenExpiry = Date.now() + (55 * 60 * 1000);
-
-            return this.token;
-        } catch (error) {
-            throw new Error(`Authentication error: ${error.message}`);
-        }
+        // Backend doesn't use version prefix, routes are directly mounted
+        return `${this.baseURL}/${cleanPath}`;
     }
 
     /**
      * Get authentication headers
-     * @returns {Promise<Object>} Headers object
+     * @returns {Object} Headers object with x-client-id and x-client-secret
      */
-    async getAuthHeaders() {
-        const token = await this.authenticate();
+    getAuthHeaders() {
         return {
-            'Authorization': `Bearer ${token}`,
+            'x-client-id': this.clientId,
+            'x-client-secret': this.clientSecret,
             'Content-Type': 'application/json',
         };
     }
@@ -90,7 +53,7 @@ export class OblienClient {
      * @returns {Promise<any>} Response data
      */
     async get(path, params = {}) {
-        const headers = await this.getAuthHeaders();
+        const headers = this.getAuthHeaders();
         const url = new URL(this._buildURL(path));
         
         // Add query parameters
@@ -115,7 +78,7 @@ export class OblienClient {
      * @returns {Promise<any>} Response data
      */
     async post(path, body = {}) {
-        const headers = await this.getAuthHeaders();
+        const headers = this.getAuthHeaders();
         
         const response = await fetch(this._buildURL(path), {
             method: 'POST',
@@ -133,7 +96,7 @@ export class OblienClient {
      * @returns {Promise<any>} Response data
      */
     async put(path, body = {}) {
-        const headers = await this.getAuthHeaders();
+        const headers = this.getAuthHeaders();
         
         const response = await fetch(this._buildURL(path), {
             method: 'PUT',
@@ -150,7 +113,7 @@ export class OblienClient {
      * @returns {Promise<any>} Response data
      */
     async delete(path) {
-        const headers = await this.getAuthHeaders();
+        const headers = this.getAuthHeaders();
         
         const response = await fetch(this._buildURL(path), {
             method: 'DELETE',

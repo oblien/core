@@ -1,5 +1,5 @@
 /**
- * TypeScript definitions for oblien-core
+ * TypeScript definitions for oblien
  */
 
 // ============ Client Types ============
@@ -133,11 +133,13 @@ export interface ChatOptions {
 export interface CreateSessionOptions {
     agentId: string;
     workflowId?: string;
+    namespace?: string; // For authenticated users, typically user_id
     workspace?: Record<string, any>;
 }
 
 export interface CreateGuestSessionOptions {
     ip: string;
+    fingerprint?: string;
     agentId: string;
     workflowId?: string;
     metadata?: Record<string, any>;
@@ -157,7 +159,7 @@ export class OblienChat {
     
     createSession(options: CreateSessionOptions): Promise<SessionData>;
     createGuestSession(options: CreateGuestSessionOptions): Promise<GuestSessionData>;
-    getGuestByIP(ip: string): Promise<Guest | null>;
+    getGuest(ip: string, fingerprint?: string): Promise<Guest | null>;
     getSession(sessionId: string): Promise<any>;
     listSessions(options?: Record<string, any>): Promise<any[]>;
     deleteSession(sessionId: string): Promise<any>;

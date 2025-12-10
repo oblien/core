@@ -31,37 +31,138 @@ export class GuestManager {
     }
 
     /**
-     * Get or create guest user by IP
+     * Find existing guest by fingerprint or IP (dual-layer identification)
+     * @param {string} fingerprint - Client fingerprint
      * @param {string} ip - IP address
-     * @param {Object} [metadata] - Additional metadata to store
+     * @returns {Promise<Object|null>} Guest object or null
+     */
+    async findExistingGuest(fingerprint, ip) {
+        // Layer 1: Try to find by fingerprint first
+        const guestIdByFingerprint = await this.storage.get(`fingerprint:${fingerprint}`);
+        if (guestIdByFingerprint) {
+            const guest = await this.getGuest(guestIdByFingerprint);
+            if (guest) {
+                // Update IP mapping if it changed
+                if (guest.metadata?.ip !== ip) {
+                    await this._updateMappings(guest.id, fingerprint, ip);
+                    await this.updateGuest(guest.id, {
+                        ip: this._maskIP(ip),
+                        metadata: {
+                            ...guest.metadata,
+                            ip,
+                            previousIps: [...(guest.metadata?.previousIps || []), guest.metadata?.ip].filter(Boolean),
+                        },
+                    });
+                }
+                return guest;
+            }
+        }
+
+        // Layer 2: Fallback to IP if fingerprint didn't match
+        const guestIdByIp = await this.storage.get(`ip:${ip}`);
+        if (guestIdByIp) {
+            const guest = await this.getGuest(guestIdByIp);
+            if (guest) {
+                // Update fingerprint mapping
+                await this._updateMappings(guest.id, fingerprint, ip);
+                await this.updateGuest(guest.id, {
+                    metadata: {
+                        ...guest.metadata,
+                        fingerprint,
+                        previousFingerprints: [...(guest.metadata?.previousFingerprints || []), guest.metadata?.fingerprint].filter(Boolean),
+                    },
+                });
+                return guest;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Update fingerprint and IP mappings
+     * @private
+     */
+    async _updateMappings(guestId, fingerprint, ip) {
+        await this.storage.set(`fingerprint:${fingerprint}`, guestId, this.ttl);
+        await this.storage.set(`ip:${ip}`, guestId, this.ttl);
+    }
+
+    /**
+     * Get or create guest user by IP and fingerprint (dual-layer identification)
+     * Supports both old signature: getOrCreateGuest(ip, metadata)
+     * and new signature: getOrCreateGuest(ip, fingerprint, metadata)
+     * @param {string} ip - IP address
+     * @param {string|Object} fingerprintOrMetadata - Client fingerprint (string) or metadata (object)
+     * @param {Object} [metadata] - Additional metadata to store (only if fingerprint is provided)
      * @returns {Promise<Object>} Guest user object
      */
-    async getOrCreateGuest(ip, metadata = {}) {
-        const guestId = this.generateGuestId(ip);
-        
-        // Try to get existing guest
-        let guest = await this.storage.get(`guest:${guestId}`);
-        
-        if (guest) {
-            // Update last seen
-            guest.lastSeen = new Date().toISOString();
-            await this.storage.set(`guest:${guestId}`, guest, this.ttl);
-            return guest;
+    async getOrCreateGuest(ip, fingerprintOrMetadata = null, metadata = {}) {
+        // Handle backward compatibility: detect if second param is metadata (object) or fingerprint (string)
+        let fingerprint = null;
+        let finalMetadata = {};
+
+        if (fingerprintOrMetadata === null || fingerprintOrMetadata === undefined) {
+            // No second parameter
+            finalMetadata = metadata || {};
+        } else if (typeof fingerprintOrMetadata === 'string') {
+            // New signature: (ip, fingerprint, metadata)
+            fingerprint = fingerprintOrMetadata;
+            finalMetadata = metadata || {};
+        } else if (typeof fingerprintOrMetadata === 'object') {
+            // Old signature: (ip, metadata) - fingerprint is in metadata
+            finalMetadata = fingerprintOrMetadata;
+            fingerprint = finalMetadata.fingerprint || null;
+        }
+
+        // Try to find existing guest by fingerprint or IP
+        if (fingerprint) {
+            const existingGuest = await this.findExistingGuest(fingerprint, ip);
+            if (existingGuest) {
+                // Update last seen
+                existingGuest.lastSeen = new Date().toISOString();
+                await this.storage.set(`guest:${existingGuest.id}`, existingGuest, this.ttl);
+                return existingGuest;
+            }
+        } else {
+            // Try to find by IP only
+            const guestIdByIp = await this.storage.get(`ip:${ip}`);
+            if (guestIdByIp) {
+                const guest = await this.getGuest(guestIdByIp);
+                if (guest) {
+                    guest.lastSeen = new Date().toISOString();
+                    await this.storage.set(`guest:${guest.id}`, guest, this.ttl);
+                    return guest;
+                }
+            }
         }
 
         // Create new guest
-        guest = {
+        const guestId = this.generateGuestId(ip);
+        const guest = {
             id: guestId,
             namespace: guestId, // For rate limiting
             ip: this._maskIP(ip), // Store masked IP for privacy
             isGuest: true,
             createdAt: new Date().toISOString(),
             lastSeen: new Date().toISOString(),
-            metadata,
+            metadata: {
+                ...finalMetadata,
+                ip,
+                fingerprint,
+            },
             sessions: [],
         };
 
         await this.storage.set(`guest:${guestId}`, guest, this.ttl);
+
+        // Store mappings
+        if (fingerprint) {
+            await this._updateMappings(guestId, fingerprint, ip);
+        } else {
+            // Fallback: just store IP mapping if no fingerprint
+            await this.storage.set(`ip:${ip}`, guestId, this.ttl);
+        }
 
         // Call callback if provided
         if (this.onGuestCreated) {

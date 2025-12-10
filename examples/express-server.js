@@ -1,10 +1,10 @@
 /**
  * Express Server Example
- * Complete example of using oblien-core for session management
+ * Complete example of using oblien for session management
  */
 
 import express from 'express';
-import { OblienClient, OblienChat } from 'oblien-core';
+import { OblienClient, OblienChat } from 'oblien';
 
 const app = express();
 app.use(express.json());

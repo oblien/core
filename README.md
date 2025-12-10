@@ -2,10 +2,20 @@
 
 Server-side SDK for building AI-powered applications with Oblien platform.
 
+## Features
+
+- 🔐 **Direct header authentication** - Uses `x-client-id` and `x-client-secret` headers
+- 👤 **Dual-layer guest identification** - IP + fingerprint for better guest tracking
+- 🔄 **Smart guest matching** - Detects same guest even when IP or fingerprint changes
+- 📊 **Namespace support** - Pass user ID for authenticated session tracking
+- ⚡ **Automatic rate limiting** - Built-in limits for guest sessions
+- 💾 **Flexible storage** - NodeCache (default), Redis, or custom adapters
+- 🎯 **Single function for guest lookup** - `getGuest(ip, fingerprint)` handles both
+
 ## Installation
 
 ```bash
-npm install oblien-core
+npm install oblien
 ```
 
 ## What This SDK Does
@@ -24,24 +34,25 @@ npm install oblien-core
 ### 1. Initialize Client
 
 ```javascript
-import { OblienClient } from 'oblien-core';
+import { OblienClient } from 'oblien';
 
 const client = new OblienClient({
-    apiKey: 'your-api-key',
-    apiSecret: 'your-api-secret', // For server-side
-});
+    apiKey: 'your-client-id',      // Your Oblien Client ID
+    apiSecret: 'your-client-secret', // Your Oblien Client Secret (required)
+ });
 ```
 
 ### 2. Create Chat Session
 
 ```javascript
-import { OblienChat } from 'oblien-core/chat';
+import { OblienChat } from 'oblien/chat';
 
 const chat = new OblienChat(client);
 
-// Create session
+// Create session for authenticated user
 const session = await chat.createSession({
     agentId: 'your-agent-id',
+    namespace: 'user_123', // Optional: User ID for rate limiting/tracking
     // workflowId: 'workflow-id', // Optional
     // workspace: {}, // Optional
 });
@@ -51,7 +62,7 @@ console.log(session);
 //   sessionId: 'session-xxx',
 //   token: 'jwt-token-for-client',
 //   agentId: 'agent-id',
-//   namespace: null
+//   namespace: 'user_123'
 // }
 ```
 
@@ -102,19 +113,21 @@ function App() {
 
 ## Guest Sessions (Rate Limited)
 
-For anonymous users, create guest sessions based on IP address:
+For anonymous users, create guest sessions with **dual-layer identification** using IP + fingerprint:
 
 ```javascript
-import { OblienChat } from 'oblien-core/chat';
+import { OblienChat } from 'oblien/chat';
 
 const chat = new OblienChat(client);
 
 // Express route
 app.post('/api/guest-session', async (req, res) => {
     const ip = req.ip || req.headers['x-forwarded-for'];
+    const fingerprint = req.body.fingerprint; // Browser fingerprint
 
     const session = await chat.createGuestSession({
-        ip: ip,
+        ip,
+        fingerprint, // NEW: Enables dual-layer identification
         agentId: 'your-agent-id',
         metadata: {
             userAgent: req.headers['user-agent'],
@@ -133,11 +146,23 @@ app.post('/api/guest-session', async (req, res) => {
 
 ### Guest Features:
 
+- ✅ **Dual-layer identification**: IP + fingerprint for better guest tracking
+- ✅ **Smart guest matching**: Same guest detected even if IP or fingerprint changes
 - ✅ Automatic rate limiting (100K tokens/day, 50 messages/day)
-- ✅ IP-based identification (privacy-friendly)
+- ✅ Privacy-friendly (IP masked, fingerprint hashed)
 - ✅ Auto-expiring sessions (24h TTL)
 - ✅ Built-in caching with `node-cache` (no Redis required!)
 - ✅ Optional Redis support for distributed systems
+
+### How Dual-Layer Identification Works:
+
+The package automatically tracks guests using both IP and fingerprint:
+
+- **Fingerprint changes, IP stays** → Same guest detected ✅
+- **IP changes, fingerprint stays** → Same guest detected ✅
+- **Both change** → New guest created
+
+This provides better continuity for users on mobile networks or using VPNs.
 
 ## Guest Storage Options
 
@@ -146,7 +171,7 @@ app.post('/api/guest-session', async (req, res) => {
 Works out of the box - no setup needed:
 
 ```javascript
-import { OblienChat } from 'oblien-core/chat';
+import { OblienChat } from 'oblien/chat';
 
 const chat = new OblienChat(client);
 // Uses NodeCacheStorage by default
@@ -156,7 +181,7 @@ const chat = new OblienChat(client);
 ### Option 1: Custom NodeCache Settings
 
 ```javascript
-import { OblienChat, NodeCacheStorage } from 'oblien-core/chat';
+import { OblienChat, NodeCacheStorage } from 'oblien/chat';
 
 const storage = new NodeCacheStorage(86400); // 24 hours TTL
 
@@ -172,7 +197,7 @@ console.log(storage.getStats());
 
 ```javascript
 import { createClient } from 'redis';
-import { OblienChat, RedisStorage } from 'oblien-core/chat';
+import { OblienChat, RedisStorage } from 'oblien/chat';
 
 const redis = createClient();
 await redis.connect();
@@ -186,7 +211,7 @@ const chat = new OblienChat(client, {
 ### Option 3: Simple In-Memory (Dev Only)
 
 ```javascript
-import { OblienChat, InMemoryStorage } from 'oblien-core/chat';
+import { OblienChat, InMemoryStorage } from 'oblien/chat';
 
 const chat = new OblienChat(client, {
     guestStorage: new InMemoryStorage(),
@@ -215,11 +240,23 @@ Session management:
 ```javascript
 const chat = new OblienChat(client, options?);
 
-// Create regular session
-await chat.createSession({ agentId, workflowId?, workspace? });
+// Create regular session (authenticated users)
+await chat.createSession({ 
+    agentId, 
+    namespace?, // Optional: user_id for tracking
+    workflowId?, 
+    workspace? 
+});
 
-// Create guest session
-await chat.createGuestSession({ ip, agentId, workflowId?, metadata?, workspace? });
+// Create guest session (with dual-layer identification)
+await chat.createGuestSession({ 
+    ip, 
+    fingerprint?, // NEW: Browser fingerprint for better tracking
+    agentId, 
+    workflowId?, 
+    metadata?, 
+    workspace? 
+});
 
 // Get session info
 await chat.getSession(sessionId);
@@ -231,7 +268,7 @@ await chat.listSessions({ page?, limit? });
 await chat.deleteSession(sessionId);
 
 // Guest management
-await chat.getGuestByIP(ip);
+await chat.getGuest(ip, fingerprint?); // NEW: Unified function for IP and/or fingerprint lookup
 await chat.getAllGuests(); // Admin only
 await chat.cleanupGuests(); // Clean expired
 ```
@@ -241,7 +278,7 @@ await chat.cleanupGuests(); // Clean expired
 Manual guest management:
 
 ```javascript
-import { GuestManager } from 'oblien-core/chat';
+import { GuestManager } from 'oblien/chat';
 
 const guestManager = new GuestManager({
     storage?: StorageAdapter,
@@ -249,7 +286,12 @@ const guestManager = new GuestManager({
     onGuestCreated?: (guest) => void,
 });
 
-await guestManager.getOrCreateGuest(ip, metadata?);
+// With dual-layer identification
+await guestManager.getOrCreateGuest(ip, fingerprint?, metadata?);
+
+// Find existing guest by IP and/or fingerprint
+await guestManager.findExistingGuest(fingerprint, ip);
+
 await guestManager.getGuest(guestId);
 await guestManager.updateGuest(guestId, updates);
 await guestManager.deleteGuest(guestId);
@@ -263,7 +305,7 @@ await guestManager.cleanup();
 
 ```javascript
 import express from 'express';
-import { OblienClient, OblienChat } from 'oblien-core';
+import { OblienClient, OblienChat } from 'oblien';
 
 const app = express();
 app.use(express.json());
@@ -281,6 +323,7 @@ app.post('/api/session', async (req, res) => {
     try {
         const session = await chat.createSession({
             agentId: req.body.agentId,
+            namespace: req.user.id, // Pass user ID as namespace
         });
 
         res.json(session);
@@ -289,14 +332,36 @@ app.post('/api/session', async (req, res) => {
     }
 });
 
-// Create guest session
+// Create guest session with dual-layer identification
 app.post('/api/guest-session', async (req, res) => {
     try {
-        const ip = req.ip;
+        const ip = req.ip || req.headers['x-forwarded-for'];
+        const fingerprint = req.body.fingerprint; // From client
         
+        // Check for existing guest first
+        const existingGuest = await chat.getGuest(ip, fingerprint);
+        
+        if (existingGuest && existingGuest.sessions.length > 0) {
+            // Return existing session if available
+            const latestSession = existingGuest.sessions[existingGuest.sessions.length - 1];
+            const sessionDetails = await chat.getSession(latestSession);
+            
+            if (sessionDetails?.token) {
+                return res.json({
+                    ...sessionDetails,
+                    isExisting: true,
+                });
+            }
+        }
+        
+        // Create new guest session
         const session = await chat.createGuestSession({
             ip,
+            fingerprint,
             agentId: req.body.agentId,
+            metadata: {
+                userAgent: req.headers['user-agent'],
+            },
         });
 
         res.json(session);
@@ -312,7 +377,7 @@ app.listen(3000);
 
 ```javascript
 // pages/api/session.js
-import { OblienClient, OblienChat } from 'oblien-core';
+import { OblienClient, OblienChat } from 'oblien';
 
 const client = new OblienClient({
     apiKey: process.env.OBLIEN_API_KEY,
@@ -330,9 +395,11 @@ export default async function handler(req, res) {
         // For guests
         if (!req.headers.authorization) {
             const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            const fingerprint = req.body.fingerprint;
             
             const session = await chat.createGuestSession({
                 ip,
+                fingerprint, // Dual-layer identification
                 agentId: req.body.agentId,
             });
 
@@ -342,6 +409,7 @@ export default async function handler(req, res) {
         // For authenticated users
         const session = await chat.createSession({
             agentId: req.body.agentId,
+            namespace: req.user.id, // User ID for tracking
         });
 
         res.json(session);
@@ -381,16 +449,23 @@ OBLIEN_BASE_URL=https://api.oblien.com  # Optional
 
 Check the `/examples` folder for complete examples:
 
+- `raw.js` - Complete test suite demonstrating all features
 - `express-server.js` - Full Express.js implementation
 - `nextjs-api-route.js` - Next.js API routes (App Router & Pages Router)
 - `with-redis.js` - Production setup with Redis
+
+Run the test example:
+```bash
+cd node_modules/oblien
+node examples/raw.js
+```
 
 ## TypeScript Support
 
 Full TypeScript definitions included:
 
 ```typescript
-import { OblienClient, OblienChat } from 'oblien-core';
+import { OblienClient, OblienChat } from 'oblien';
 
 const client: OblienClient = new OblienClient({
     apiKey: string,
@@ -413,9 +488,38 @@ const chat: OblienChat = new OblienChat(client);
 - 50 messages/day  
 - 20 messages/hour
 
+### Q: How does dual-layer identification work?
+
+**A:** The package tracks guests using both IP address and browser fingerprint:
+
+```javascript
+// First visit: Creates guest with IP + fingerprint
+await chat.createGuestSession({
+    ip: '1.2.3.4',
+    fingerprint: 'abc123',
+    agentId: 'agent-id',
+});
+
+// Same user, different IP (e.g., mobile network)
+// → Same guest detected by fingerprint ✅
+await chat.createGuestSession({
+    ip: '5.6.7.8',        // Different IP
+    fingerprint: 'abc123', // Same fingerprint
+    agentId: 'agent-id',
+});
+
+// Same user, different fingerprint (e.g., cleared browser data)
+// → Same guest detected by IP ✅
+await chat.createGuestSession({
+    ip: '1.2.3.4',        // Same IP
+    fingerprint: 'xyz789', // Different fingerprint
+    agentId: 'agent-id',
+});
+```
+
 ### Q: Can I use custom guest IDs instead of IP?
 
-**A:** Yes! Just create your own guest ID and pass it as the `namespace`:
+**A:** Yes! Pass it as the `namespace`:
 
 ```javascript
 await chat.createSession({
@@ -449,7 +553,7 @@ MIT
 ## Links
 
 - [Documentation](https://oblien.com/docs/core-sdk)
-- [GitHub](https://github.com/oblien/oblien-core)
+- [GitHub](https://github.com/oblien/oblien)
 - [Website](https://oblien.com)
 - [React Chat Agent](https://npmjs.com/package/react-chat-agent) - Client-side chat component
 - [Agent Sandbox](https://npmjs.com/package/agent-sandbox) - Sandbox SDK

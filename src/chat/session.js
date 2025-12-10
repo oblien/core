@@ -41,21 +41,21 @@ export class ChatSession {
     async create() {
         const payload = {
             agent_id: this.agentId,
-            workflow_id: this.workflowId,
+            app_id: this.workflowId, // Backend uses app_id for workflow_id
             is_guest: this.isGuest,
             namespace: this.namespace,
             workspace: this.workspace,
         };
 
-        this.data = await this.client.post('ai/session', payload);
+        this.data = await this.client.post('ai/session/create', payload);
         this.sessionId = this.data.sessionId || this.data.session_id;
-        this.token = this.data.token || this.data.tokens?.token;
+        this.token = this.data.token || this.data.accessToken || this.data.tokens?.token;
 
         return {
             sessionId: this.sessionId,
             token: this.token,
             agentId: this.data.agentId || this.agentId,
-            workflowId: this.data.workflowId || this.workflowId,
+            workflowId: this.data.workflowId || this.data.appId || this.workflowId,
             namespace: this.namespace,
         };
     }

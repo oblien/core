@@ -1,6 +1,6 @@
 {
   "name": "oblien",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "Server-side SDK for Oblien AI Platform - Build AI-powered applications with chat, agents, and workflows",
   "main": "index.js",
   "type": "module",

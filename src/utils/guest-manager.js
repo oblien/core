@@ -129,10 +129,10 @@ export class GuestManager {
             const guestIdByIp = await this.storage.get(`ip:${ip}`);
             if (guestIdByIp) {
                 const guest = await this.getGuest(guestIdByIp);
-                if (guest) {
-                    guest.lastSeen = new Date().toISOString();
+        if (guest) {
+            guest.lastSeen = new Date().toISOString();
                     await this.storage.set(`guest:${guest.id}`, guest, this.ttl);
-                    return guest;
+            return guest;
                 }
             }
         }

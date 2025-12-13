@@ -78,6 +78,9 @@ export class OblienChat {
             workspace,
             isGuest: true,
             namespace: guest.namespace,
+            ipAddress: ip,
+            userAgent: metadata.userAgent,
+            fingerprint: fingerprint,
         });
 
         const sessionData = await session.create();

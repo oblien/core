@@ -13,6 +13,9 @@ export class ChatSession {
      * @param {boolean} [options.isGuest] - Is this a guest session
      * @param {string} [options.namespace] - Guest namespace for rate limiting
      * @param {Object} [options.workspace] - Workspace configuration
+     * @param {string} [options.ipAddress] - IP address of the user
+     * @param {string} [options.userAgent] - User agent of the user
+     * @param {string} [options.fingerprint] - Fingerprint of the user
      */
     constructor(options) {
         if (!options.client) {
@@ -32,6 +35,9 @@ export class ChatSession {
         this.workspace = options.workspace;
         this.token = null;
         this.data = null;
+        this.ipAddress = options.ipAddress || null;
+        this.userAgent = options.userAgent || null;
+        this.fingerprint = options.fingerprint || null;
     }
 
     /**
@@ -45,6 +51,9 @@ export class ChatSession {
             is_guest: this.isGuest,
             namespace: this.namespace,
             workspace: this.workspace,
+            ip_address: this.ipAddress,
+            user_agent: this.userAgent,
+            fingerprint: this.fingerprint,
         };
 
         this.data = await this.client.post('ai/session/create', payload);

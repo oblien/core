@@ -19,6 +19,7 @@ export class OblienClient {
     get(path: string, params?: Record<string, any>): Promise<any>;
     post(path: string, body?: Record<string, any>): Promise<any>;
     put(path: string, body?: Record<string, any>): Promise<any>;
+    patch(path: string, body?: Record<string, any>): Promise<any>;
     delete(path: string): Promise<any>;
 }
 
@@ -167,12 +168,272 @@ export class OblienChat {
     cleanupGuests(): Promise<number>;
 }
 
+// ============ Namespaces ============
+
+export interface NamespaceData {
+    id: string;
+    client_id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    end_user_id?: string;
+    fingerprint?: string;
+    ip_address?: string;
+    user_agent?: string;
+    country?: string;
+    status: 'active' | 'inactive' | 'suspended' | 'archived';
+    type: string;
+    is_default: boolean;
+    metadata?: Record<string, any>;
+    tags?: string[];
+    created_at: string;
+    updated_at: string;
+    last_active_at?: string;
+    archived_at?: string;
+}
+
+export interface CreateNamespaceOptions {
+    name: string;
+    slug?: string;
+    description?: string;
+    type?: 'default' | 'production' | 'testing' | 'development';
+    isDefault?: boolean;
+    metadata?: Record<string, any>;
+    tags?: string[];
+    endUserId?: string;
+}
+
+export interface UpdateNamespaceOptions {
+    name?: string;
+    description?: string;
+    status?: 'active' | 'inactive' | 'suspended' | 'archived';
+    type?: string;
+    metadata?: Record<string, any>;
+    tags?: string[];
+}
+
+export interface ListNamespacesOptions {
+    limit?: number;
+    offset?: number;
+    status?: 'active' | 'inactive' | 'suspended' | 'archived';
+    type?: string;
+    search?: string;
+    sortBy?: 'name' | 'created_at' | 'updated_at' | 'last_active_at';
+    sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface ServiceConfig {
+    id: number;
+    namespace_id: string;
+    service: string;
+    enabled: boolean;
+    config?: Record<string, any>;
+    rate_limit_requests?: number;
+    rate_limit_period?: string;
+    features?: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ConfigureServiceOptions {
+    service: string;
+    enabled?: boolean;
+    config?: Record<string, any>;
+    rateLimitRequests?: number;
+    rateLimitPeriod?: 'minute' | 'hour' | 'day';
+    features?: string[];
+}
+
+export interface NamespaceUsage {
+    usage: Array<{
+        service: string;
+        date: string;
+        requests: number;
+        credits: number;
+        deductions: number;
+    }>;
+    summary: Array<{
+        service: string;
+        total_requests: number;
+        total_credits: number;
+        first_used: string;
+        last_used: string;
+    }>;
+    quotas: Array<any>;
+    active_sessions: number;
+}
+
+export class Namespace {
+    constructor(options: { client: OblienClient; namespaceId?: string; data?: NamespaceData });
+    
+    namespaceId: string | null;
+    data: NamespaceData | null;
+    
+    create(options: CreateNamespaceOptions): Promise<NamespaceData>;
+    get(identifier?: string): Promise<NamespaceData>;
+    update(updates: UpdateNamespaceOptions, namespaceId?: string): Promise<NamespaceData>;
+    delete(namespaceId?: string): Promise<any>;
+    getActivity(options?: { limit?: number; offset?: number }, namespaceId?: string): Promise<any[]>;
+    getUsage(options?: { service?: string; days?: number }, namespaceId?: string): Promise<NamespaceUsage>;
+    configureService(options: ConfigureServiceOptions, namespaceId?: string): Promise<ServiceConfig>;
+    listServices(namespaceId?: string): Promise<ServiceConfig[]>;
+    getServiceConfig(service: string, namespaceId?: string): Promise<ServiceConfig>;
+    toggleService(service: string, enabled: boolean, namespaceId?: string): Promise<ServiceConfig>;
+    deleteService(service: string, namespaceId?: string): Promise<any>;
+    bulkConfigureServices(services: ConfigureServiceOptions[], namespaceId?: string): Promise<ServiceConfig[]>;
+}
+
+export class OblienNamespaces {
+    constructor(client: OblienClient);
+    
+    create(options: CreateNamespaceOptions): Promise<NamespaceData>;
+    get(identifier: string): Promise<NamespaceData>;
+    list(options?: ListNamespacesOptions): Promise<{ success: boolean; data: NamespaceData[]; pagination: any }>;
+    update(namespaceId: string, updates: UpdateNamespaceOptions): Promise<NamespaceData>;
+    delete(namespaceId: string): Promise<any>;
+    getActivity(namespaceId: string, options?: { limit?: number; offset?: number }): Promise<any[]>;
+    getUsage(namespaceId: string, options?: { service?: string; days?: number }): Promise<NamespaceUsage>;
+    getAvailableServices(): Promise<any[]>;
+    configureService(namespaceId: string, options: ConfigureServiceOptions): Promise<ServiceConfig>;
+    listServices(namespaceId: string): Promise<ServiceConfig[]>;
+    getServiceConfig(namespaceId: string, service: string): Promise<ServiceConfig>;
+    toggleService(namespaceId: string, service: string, enabled: boolean): Promise<ServiceConfig>;
+    enableService(namespaceId: string, service: string): Promise<ServiceConfig>;
+    disableService(namespaceId: string, service: string): Promise<ServiceConfig>;
+    deleteService(namespaceId: string, service: string): Promise<any>;
+    bulkConfigureServices(namespaceId: string, services: ConfigureServiceOptions[]): Promise<ServiceConfig[]>;
+    namespace(namespaceId?: string): Namespace;
+}
+
+// ============ Credits ============
+
+export interface QuotaData {
+    id: number;
+    client_id: string;
+    namespace: string;
+    service: string;
+    quota_limit: number | null;
+    quota_used: number;
+    period: string;
+    period_start?: string;
+    period_end?: string;
+    enabled: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreditTransaction {
+    id: number;
+    client_id: string;
+    namespace: string;
+    end_user_id?: string;
+    amount: number;
+    client_balance_after: number;
+    namespace_quota_used?: number;
+    type: 'deduction' | 'addition' | 'refund' | 'adjustment';
+    service?: string;
+    description?: string;
+    metadata?: Record<string, any>;
+    created_at: string;
+}
+
+export interface SetQuotaOptions {
+    namespace: string;
+    service: string;
+    quotaLimit: number;
+    period?: 'daily' | 'monthly' | 'unlimited';
+}
+
+export interface HistoryOptions {
+    namespace?: string;
+    endUserId?: string;
+    service?: string;
+    type?: 'deduction' | 'addition' | 'refund' | 'adjustment';
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+    after?: string;
+    afterId?: number;
+}
+
+export interface SummaryOptions {
+    namespace?: string;
+    days?: number;
+    limit?: number;
+    offset?: number;
+    after?: number;
+}
+
+export interface CreditPackage {
+    id: string;
+    name: string;
+    credits: number;
+    price: number;
+    currency: string;
+    active: boolean;
+}
+
+export interface CalculateCostOptions {
+    packageId?: string;
+    amount?: number;
+    credits?: number;
+}
+
+export interface PurchaseOptions {
+    packageId?: string;
+    amount?: number;
+    metadata?: Record<string, any>;
+}
+
+export interface PurchaseHistoryOptions {
+    limit?: number;
+    offset?: number;
+    light?: boolean;
+}
+
+export class OblienCredits {
+    constructor(client: OblienClient);
+    
+    // Balance Management
+    getBalance(): Promise<number>;
+    addCredits(amount: number, reason?: string, metadata?: Record<string, any>): Promise<any>;
+    
+    // Quota Management
+    getNamespaceQuotas(options?: { limit?: number; offset?: number; after?: string; search?: string; status?: string }): Promise<any>;
+    getNamespaceDetails(namespace: string, options?: { days?: number }): Promise<any>;
+    setQuota(options: SetQuotaOptions): Promise<QuotaData>;
+    resetQuota(namespace: string, service: string): Promise<any>;
+    
+    // Usage History & Transactions
+    getHistory(options?: HistoryOptions): Promise<{ success: boolean; data: CreditTransaction[]; pagination: any }>;
+    getHistoryFilters(): Promise<{ namespaces: string[]; services: string[] }>;
+    getSummary(options?: SummaryOptions): Promise<any>;
+    getUsageStats(options?: { days?: number }): Promise<any>;
+    
+    // Pricing & Packages
+    getPackages(): Promise<CreditPackage[]>;
+    getPricingInfo(): Promise<any>;
+    calculateCost(options: CalculateCostOptions): Promise<any>;
+    calculateCredits(amount: number): Promise<any>;
+    
+    // Purchase Management
+    createCheckout(options: PurchaseOptions): Promise<any>;
+    getPurchaseHistory(options?: PurchaseHistoryOptions): Promise<any>;
+    getPurchaseDetails(purchaseId: string): Promise<any>;
+    getPurchaseSession(purchaseId: string): Promise<any>;
+    cancelPurchase(purchaseId: string): Promise<any>;
+}
+
 // ============ Exports ============
 
 declare const _default: {
     OblienClient: typeof OblienClient;
     OblienChat: typeof OblienChat;
     ChatSession: typeof ChatSession;
+    OblienNamespaces: typeof OblienNamespaces;
+    Namespace: typeof Namespace;
+    OblienCredits: typeof OblienCredits;
     GuestManager: typeof GuestManager;
     NodeCacheStorage: typeof NodeCacheStorage;
     InMemoryStorage: typeof InMemoryStorage;

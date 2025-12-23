@@ -7,10 +7,10 @@ Server-side SDK for building AI-powered applications with Oblien platform.
 - 🔐 **Direct header authentication** - Uses `x-client-id` and `x-client-secret` headers
 - 👤 **Dual-layer guest identification** - IP + fingerprint for better guest tracking
 - 🔄 **Smart guest matching** - Detects same guest even when IP or fingerprint changes
-- 📊 **Namespace support** - Pass user ID for authenticated session tracking
+- 📊 **Namespace management** - Multi-tenant workspaces with service configurations
 - ⚡ **Automatic rate limiting** - Built-in limits for guest sessions
 - 💾 **Flexible storage** - NodeCache (default), Redis, or custom adapters
-- 🎯 **Single function for guest lookup** - `getGuest(ip, fingerprint)` handles both
+- 🎯 **Complete usage tracking** - Monitor credits, quotas, and activity
 
 ## Installation
 
@@ -163,6 +163,102 @@ The package automatically tracks guests using both IP and fingerprint:
 - **Both change** → New guest created
 
 This provides better continuity for users on mobile networks or using VPNs.
+
+## Namespace Management
+
+Manage multi-tenant workspaces with service configurations, usage tracking, and quotas.
+
+```javascript
+import { OblienNamespaces } from 'oblien/namespaces';
+
+const namespaces = new OblienNamespaces(client);
+
+// Create a namespace
+const namespace = await namespaces.create({
+    name: 'Production Environment',
+    type: 'production',
+    metadata: { region: 'us-east-1' },
+    tags: ['production', 'critical'],
+});
+
+// Configure services
+await namespaces.configureService(namespace.id, {
+    service: 'ai',
+    enabled: true,
+    config: { model: 'gpt-4', maxTokens: 4000 },
+    rateLimitRequests: 1000,
+    rateLimitPeriod: 'hour',
+});
+
+// Get usage statistics
+const usage = await namespaces.getUsage(namespace.id, { days: 30 });
+console.log(usage.summary); // Credits, tokens, requests per service
+
+// List all namespaces
+const result = await namespaces.list({
+    status: 'active',
+    type: 'production',
+});
+```
+
+### Namespace Features:
+
+- ✅ **Full CRUD** - Create, read, update, delete namespaces
+- ✅ **Service configuration** - Enable/disable services per namespace
+- ✅ **Usage tracking** - Monitor credits, tokens, and requests
+- ✅ **Quota management** - Set limits per service
+- ✅ **Activity logging** - Complete audit trail
+- ✅ **Rich metadata** - Custom fields and tags
+
+[📖 Full Namespaces Documentation](./docs/NAMESPACES.md)
+
+## Credits Management
+
+Manage credits, quotas, usage tracking, and purchases.
+
+```javascript
+import { OblienCredits } from 'oblien/credits';
+
+const credits = new OblienCredits(client);
+
+// Get balance
+const balance = await credits.getBalance();
+
+// Set namespace quota
+await credits.setQuota({
+    namespace: 'production',
+    service: 'ai',
+    quotaLimit: 10000,
+    period: 'monthly',
+});
+
+// Get usage statistics
+const stats = await credits.getUsageStats({ days: 7 });
+
+// Purchase credits
+const checkout = await credits.createCheckout({
+    packageId: 'pro',
+});
+console.log('Checkout URL:', checkout.checkoutUrl);
+
+// Get transaction history
+const history = await credits.getHistory({
+    namespace: 'production',
+    service: 'ai',
+    limit: 50,
+});
+```
+
+### Credits Features:
+
+- ✅ **Balance management** - Check and add credits
+- ✅ **Quota system** - Set limits per namespace and service
+- ✅ **Usage tracking** - Complete transaction history
+- ✅ **Statistics** - Daily/monthly aggregated data
+- ✅ **Purchase integration** - Stripe checkout for buying credits
+- ✅ **Package management** - Predefined credit packages
+
+[📖 Full Credits Documentation](./docs/CREDITS.md)
 
 ## Guest Storage Options
 

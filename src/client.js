@@ -108,6 +108,24 @@ export class OblienClient {
     }
 
     /**
+     * Make PATCH request
+     * @param {string} path - API path
+     * @param {Object} [body] - Request body
+     * @returns {Promise<any>} Response data
+     */
+    async patch(path, body = {}) {
+        const headers = this.getAuthHeaders();
+        
+        const response = await fetch(this._buildURL(path), {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(body),
+        });
+
+        return this._handleResponse(response);
+    }
+
+    /**
      * Make DELETE request
      * @param {string} path - API path
      * @returns {Promise<any>} Response data

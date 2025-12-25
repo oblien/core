@@ -3,7 +3,8 @@
  * pages/api/session.js or app/api/session/route.js
  */
 
-import { OblienClient, OblienChat } from 'oblien';
+import { OblienClient } from 'oblien';
+import { OblienChat } from 'oblien/chat';
 
 // Initialize once (singleton pattern)
 let chatInstance = null;

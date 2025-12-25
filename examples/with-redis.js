@@ -5,7 +5,8 @@
 
 import express from 'express';
 import { createClient } from 'redis';
-import { OblienClient, OblienChat, RedisStorage } from 'oblien';
+import { OblienClient } from 'oblien';
+import { OblienChat, RedisStorage } from 'oblien/chat';
 
 const app = express();
 app.use(express.json());

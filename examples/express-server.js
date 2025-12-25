@@ -4,7 +4,8 @@
  */
 
 import express from 'express';
-import { OblienClient, OblienChat } from 'oblien';
+import { OblienClient } from 'oblien';
+import { OblienChat } from 'oblien/chat';
 
 const app = express();
 app.use(express.json());

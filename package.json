@@ -9,7 +9,11 @@
     ".": "./index.js",
     "./chat": "./chat.js",
     "./namespaces": "./namespaces.js",
-    "./credits": "./credits.js"
+    "./credits": "./credits.js",
+    "./agents": "./agents.js",
+    "./sandbox": "./sandbox.js",
+    "./search": "./search.js",
+    "./icons": "./icons.js"
   },
   "scripts": {
     "test": "node --test tests/**/*.test.js"
@@ -61,6 +65,9 @@
     "namespaces.js",
     "credits.js",
     "agents.js",
+    "sandbox.js",
+    "search.js",
+    "icons.js",
     "workflows.js",
     "README.md",
     "LICENSE"

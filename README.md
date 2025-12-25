@@ -1,16 +1,6 @@
 # Oblien Core SDK
 
-Server-side SDK for building AI-powered applications with Oblien platform.
-
-## Features
-
-- 🔐 **Direct header authentication** - Uses `x-client-id` and `x-client-secret` headers
-- 👤 **Dual-layer guest identification** - IP + fingerprint for better guest tracking
-- 🔄 **Smart guest matching** - Detects same guest even when IP or fingerprint changes
-- 📊 **Namespace management** - Multi-tenant workspaces with service configurations
-- ⚡ **Automatic rate limiting** - Built-in limits for guest sessions
-- 💾 **Flexible storage** - NodeCache (default), Redis, or custom adapters
-- 🎯 **Complete usage tracking** - Monitor credits, quotas, and activity
+Complete Node.js SDK for the Oblien AI Platform. Manage agents, chat sessions, sandboxes, namespaces, and more.
 
 ## Installation
 
@@ -18,203 +8,251 @@ Server-side SDK for building AI-powered applications with Oblien platform.
 npm install oblien
 ```
 
-## What This SDK Does
-
-**Server-Side Only** - This SDK is for creating and managing chat sessions on your server. It **does not** handle actual messaging - that happens client-side in the browser using the tokens this SDK generates.
-
-### Workflow:
-
-1. **Server:** Create session using this SDK → Get token
-2. **Server:** Send token to client (browser)
-3. **Client:** Use token to chat directly with Oblien API
-4. **Client:** Use [react-chat-agent](https://npmjs.com/package/react-chat-agent) or your own implementation
-
 ## Quick Start
 
-### 1. Initialize Client
-
 ```javascript
+// Import client
 import { OblienClient } from 'oblien';
 
+// Import modules (tree-shakeable)
+import { OblienAgents } from 'oblien/agents';
+import { OblienChat } from 'oblien/chat';
+import { OblienSandboxes } from 'oblien/sandbox';
+import { OblienSearch } from 'oblien/search';
+import { OblienIcons } from 'oblien/icons';
+import { OblienNamespaces } from 'oblien/namespaces';
+import { OblienCredits } from 'oblien/credits';
+
+// Initialize client
 const client = new OblienClient({
-    apiKey: 'your-client-id',      // Your Oblien Client ID
-    apiSecret: 'your-client-secret', // Your Oblien Client Secret (required)
- });
+    apiKey: 'your-client-id',
+    apiSecret: 'your-client-secret',
+    baseURL: 'https://api.oblien.com'  // Optional
+});
+
+// Use modules
+const agents = new OblienAgents(client);
+const chat = new OblienChat(client);
+const sandboxes = new OblienSandboxes(client);
+const search = new OblienSearch(client);
+const icons = new OblienIcons(client);
 ```
 
-### 2. Create Chat Session
+---
+
+## Modules Overview
+
+### 🤖 Agents Module
+
+Manage AI agents with settings, tools, and analytics.
+
+```javascript
+import { OblienAgents } from 'oblien/agents';
+
+const agents = new OblienAgents(client);
+
+// Create agent
+const agent = await agents.create({
+    name: 'Support Agent',
+    namespace: 'production',
+    prompts: {
+        identity: 'You are a helpful assistant.'
+    }
+});
+
+// Configure settings
+const agentInstance = agents.agent(agent.agentId);
+await agentInstance.settings.updateModelConfig({
+    model: 'oblien-master',
+    temperature: 0.8
+});
+
+// Assign tools
+await agentInstance.settings.updateTools(['web-search', 'calculator']);
+
+// Get analytics
+const overview = await agentInstance.getOverview({ days: 7 });
+```
+
+**Features:**
+- ✅ CRUD operations (create, read, update, delete)
+- ✅ Settings management (5 sections: switches, model, tools, guest limits, context)
+- ✅ Tools management (list, search, create, validate)
+- ✅ Analytics & monitoring
+- ✅ Namespace support
+- ✅ User management
+
+📖 [Full Documentation](./docs/AGENTS_COMPLETE.md) | 💡 [Examples](./examples/agents-complete-example.js)
+
+---
+
+### 💬 Chat Module
+
+Create and manage chat sessions with guest support.
 
 ```javascript
 import { OblienChat } from 'oblien/chat';
 
 const chat = new OblienChat(client);
 
-// Create session for authenticated user
+// Create session
 const session = await chat.createSession({
-    agentId: 'your-agent-id',
-    namespace: 'user_123', // Optional: User ID for rate limiting/tracking
-    // workflowId: 'workflow-id', // Optional
-    // workspace: {}, // Optional
+    agentId: 'agent-id',
+    namespace: 'production'
 });
 
-console.log(session);
-// {
-//   sessionId: 'session-xxx',
-//   token: 'jwt-token-for-client',
-//   agentId: 'agent-id',
-//   namespace: 'user_123'
-// }
-```
-
-### 3. Send Token to Client
-
-```javascript
-// Express example
-app.post('/api/create-session', async (req, res) => {
-    const session = await chat.createSession({
-        agentId: req.body.agentId,
-    });
-
-    res.json({
-        sessionId: session.sessionId,
-        token: session.token, // Client uses this to chat
-    });
+// Create guest session
+const guestSession = await chat.createGuestSession({
+    ip: '192.168.1.1',
+    fingerprint: 'abc123',
+    agentId: 'agent-id'
 });
+
+// List sessions
+const sessions = await chat.listSessions({ limit: 20 });
 ```
 
-### 4. Client Uses Token
+**Features:**
+- ✅ Session management
+- ✅ Guest sessions with fingerprint tracking
+- ✅ Token generation
+- ✅ Automatic guest ID generation
+
+📖 [Documentation](./docs/CHAT.md) | 💡 [Examples](./examples/chat-example.js)
+
+---
+
+### 📦 Sandboxes Module
+
+Manage cloud sandboxes (containerized environments).
 
 ```javascript
-// In browser (using react-chat-agent)
-import { ChatProvider } from 'react-chat-agent';
+import { OblienSandboxes } from 'oblien/sandbox';
 
-function App() {
-    const [sessionToken, setSessionToken] = useState(null);
+const sandboxes = new OblienSandboxes(client);
 
-    useEffect(() => {
-        // Get token from your server
-        fetch('/api/create-session', {
-            method: 'POST',
-            body: JSON.stringify({ agentId: 'agent-id' }),
-        })
-        .then(r => r.json())
-        .then(data => setSessionToken(data.token));
-    }, []);
-
-    if (!sessionToken) return <div>Loading...</div>;
-
-    return (
-        <ChatProvider token={sessionToken}>
-            <ChatPanel />
-        </ChatProvider>
-    );
-}
-```
-
-## Guest Sessions (Rate Limited)
-
-For anonymous users, create guest sessions with **dual-layer identification** using IP + fingerprint:
-
-```javascript
-import { OblienChat } from 'oblien/chat';
-
-const chat = new OblienChat(client);
-
-// Express route
-app.post('/api/guest-session', async (req, res) => {
-    const ip = req.ip || req.headers['x-forwarded-for'];
-    const fingerprint = req.body.fingerprint; // Browser fingerprint
-
-    const session = await chat.createGuestSession({
-        ip,
-        fingerprint, // NEW: Enables dual-layer identification
-        agentId: 'your-agent-id',
-        metadata: {
-            userAgent: req.headers['user-agent'],
-            referrer: req.headers['referer'],
-        },
-    });
-
-    res.json({
-        sessionId: session.sessionId,
-        token: session.token,
-        guest: session.guest,
-        // Guest sessions are rate-limited automatically
-    });
+// Create sandbox
+const sandbox = await sandboxes.create({
+    name: 'my-dev-env',
+    region: 'us-east-1',
+    template: 'node-20',
+    autoStart: true
 });
+
+// Use sandbox
+const { url, token } = sandbox.sandbox;
+const response = await fetch(`${url}/files/list`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+});
+
+// Control lifecycle
+await sandboxes.stop(sandboxId);
+await sandboxes.start(sandboxId);
+await sandboxes.restart(sandboxId);
+
+// Regenerate token (1h expiry)
+const newToken = await sandboxes.regenerateToken(sandboxId);
+
+// Get metrics
+const metrics = await sandboxes.getMetrics(sandboxId);
 ```
 
-### Guest Features:
+**Features:**
+- ✅ Create, start, stop, restart, delete sandboxes
+- ✅ Auto-start option
+- ✅ Token management (1h JWT)
+- ✅ Resource metrics
+- ✅ Multiple templates & regions
+- ✅ Platform statistics
 
-- ✅ **Dual-layer identification**: IP + fingerprint for better guest tracking
-- ✅ **Smart guest matching**: Same guest detected even if IP or fingerprint changes
-- ✅ Automatic rate limiting (100K tokens/day, 50 messages/day)
-- ✅ Privacy-friendly (IP masked, fingerprint hashed)
-- ✅ Auto-expiring sessions (24h TTL)
-- ✅ Built-in caching with `node-cache` (no Redis required!)
-- ✅ Optional Redis support for distributed systems
+📖 [Full Documentation](./docs/SANDBOXES.md) | 💡 [Examples](./examples/sandbox-example.js)
 
-### How Dual-Layer Identification Works:
+---
 
-The package automatically tracks guests using both IP and fingerprint:
+### 🗂️ Namespaces Module
 
-- **Fingerprint changes, IP stays** → Same guest detected ✅
-- **IP changes, fingerprint stays** → Same guest detected ✅
-- **Both change** → New guest created
-
-This provides better continuity for users on mobile networks or using VPNs.
-
-## Namespace Management
-
-Manage multi-tenant workspaces with service configurations, usage tracking, and quotas.
+Manage namespaces and service configurations.
 
 ```javascript
 import { OblienNamespaces } from 'oblien/namespaces';
 
 const namespaces = new OblienNamespaces(client);
 
-// Create a namespace
+// Create namespace
 const namespace = await namespaces.create({
-    name: 'Production Environment',
-    type: 'production',
-    metadata: { region: 'us-east-1' },
-    tags: ['production', 'critical'],
+    name: 'production',
+    slug: 'prod',
+    type: 'production'
 });
 
 // Configure services
-await namespaces.configureService(namespace.id, {
+await namespaces.configureService(namespaceId, {
     service: 'ai',
     enabled: true,
-    config: { model: 'gpt-4', maxTokens: 4000 },
-    rateLimitRequests: 1000,
-    rateLimitPeriod: 'hour',
+    config: { /* ... */ }
 });
 
-// Get usage statistics
-const usage = await namespaces.getUsage(namespace.id, { days: 30 });
-console.log(usage.summary); // Credits, tokens, requests per service
-
-// List all namespaces
-const result = await namespaces.list({
-    status: 'active',
-    type: 'production',
-});
+// Get usage stats
+const usage = await namespaces.getUsage(namespaceId);
 ```
 
-### Namespace Features:
+**Features:**
+- ✅ Namespace CRUD
+- ✅ Service configuration
+- ✅ Usage tracking
+- ✅ Activity logs
 
-- ✅ **Full CRUD** - Create, read, update, delete namespaces
-- ✅ **Service configuration** - Enable/disable services per namespace
-- ✅ **Usage tracking** - Monitor credits, tokens, and requests
-- ✅ **Quota management** - Set limits per service
-- ✅ **Activity logging** - Complete audit trail
-- ✅ **Rich metadata** - Custom fields and tags
+📖 [Documentation](./docs/NAMESPACES.md)
 
-[📖 Full Namespaces Documentation](./docs/NAMESPACES.md)
+---
 
-## Credits Management
+### 🎨 Icons Module
 
-Manage credits, quotas, usage tracking, and purchases.
+Search and fetch icons, images, and videos using AI-powered semantic search.
+
+```javascript
+import { OblienIcons } from 'oblien/icons';
+
+const icons = new OblienIcons(client);
+
+// Search for icons
+const results = await icons.search('home', { limit: 20 });
+
+// Fetch specific icons
+const icon = await icons.fetchIcon('settings gear');
+
+// Fetch multiple icons at once
+const iconSet = await icons.fetchIcons([
+    'home',
+    'user profile',
+    'settings',
+    'notification bell'
+]);
+
+// Fetch mixed media (icons, images, videos)
+const media = await icons.fetch([
+    { type: 'icon', description: 'user avatar' },
+    { type: 'image', description: 'mountain landscape' },
+    { type: 'video', description: 'product demo' }
+]);
+```
+
+**Features:**
+- ✅ Semantic icon search with AI embeddings
+- ✅ Fetch icons, images, and videos
+- ✅ Relevance scoring
+- ✅ Multiple icon styles (Outline, Filled, etc.)
+- ✅ Batch fetching
+- ✅ Pagination support
+- ✅ CDN-hosted assets
+
+📖 [Full Documentation](./docs/ICONS.md) | 💡 [Examples](./examples/icons-example.js)
+
+---
+
+### 💳 Credits Module
+
+Manage billing and credits.
 
 ```javascript
 import { OblienCredits } from 'oblien/credits';
@@ -224,433 +262,278 @@ const credits = new OblienCredits(client);
 // Get balance
 const balance = await credits.getBalance();
 
-// Set namespace quota
-await credits.setQuota({
-    namespace: 'production',
-    service: 'ai',
-    quotaLimit: 10000,
-    period: 'monthly',
-});
-
-// Get usage statistics
-const stats = await credits.getUsageStats({ days: 7 });
-
-// Purchase credits
-const checkout = await credits.createCheckout({
-    packageId: 'pro',
-});
-console.log('Checkout URL:', checkout.checkoutUrl);
-
-// Get transaction history
-const history = await credits.getHistory({
-    namespace: 'production',
-    service: 'ai',
-    limit: 50,
-});
+// Get usage
+const usage = await credits.getUsage({ period: 'monthly' });
 ```
 
-### Credits Features:
+**Features:**
+- ✅ Balance checking
+- ✅ Usage tracking
+- ✅ Transaction history
 
-- ✅ **Balance management** - Check and add credits
-- ✅ **Quota system** - Set limits per namespace and service
-- ✅ **Usage tracking** - Complete transaction history
-- ✅ **Statistics** - Daily/monthly aggregated data
-- ✅ **Purchase integration** - Stripe checkout for buying credits
-- ✅ **Package management** - Predefined credit packages
-
-[📖 Full Credits Documentation](./docs/CREDITS.md)
-
-## Guest Storage Options
-
-### Default: NodeCache (Recommended)
-
-Works out of the box - no setup needed:
-
-```javascript
-import { OblienChat } from 'oblien/chat';
-
-const chat = new OblienChat(client);
-// Uses NodeCacheStorage by default
-// Automatic expiration, memory management, and cleanup
-```
-
-### Option 1: Custom NodeCache Settings
-
-```javascript
-import { OblienChat, NodeCacheStorage } from 'oblien/chat';
-
-const storage = new NodeCacheStorage(86400); // 24 hours TTL
-
-const chat = new OblienChat(client, {
-    guestStorage: storage,
-});
-
-// Get cache stats
-console.log(storage.getStats());
-```
-
-### Option 2: Redis (For Distributed Systems)
-
-```javascript
-import { createClient } from 'redis';
-import { OblienChat, RedisStorage } from 'oblien/chat';
-
-const redis = createClient();
-await redis.connect();
-
-const chat = new OblienChat(client, {
-    guestStorage: new RedisStorage(redis),
-    guestTTL: 86400, // 24 hours
-});
-```
-
-### Option 3: Simple In-Memory (Dev Only)
-
-```javascript
-import { OblienChat, InMemoryStorage } from 'oblien/chat';
-
-const chat = new OblienChat(client, {
-    guestStorage: new InMemoryStorage(),
-});
-// Note: Basic Map storage, no advanced features
-```
-
-## API Reference
-
-### `OblienClient`
-
-Main client for authentication:
-
-```javascript
-const client = new OblienClient({
-    apiKey: string,
-    apiSecret?: string,
-    baseURL?: string,
-});
-```
-
-### `OblienChat`
-
-Session management:
-
-```javascript
-const chat = new OblienChat(client, options?);
-
-// Create regular session (authenticated users)
-await chat.createSession({ 
-    agentId, 
-    namespace?, // Optional: user_id for tracking
-    workflowId?, 
-    workspace? 
-});
-
-// Create guest session (with dual-layer identification)
-await chat.createGuestSession({ 
-    ip, 
-    fingerprint?, // NEW: Browser fingerprint for better tracking
-    agentId, 
-    workflowId?, 
-    metadata?, 
-    workspace? 
-});
-
-// Get session info
-await chat.getSession(sessionId);
-
-// List sessions
-await chat.listSessions({ page?, limit? });
-
-// Delete session
-await chat.deleteSession(sessionId);
-
-// Guest management
-await chat.getGuest(ip, fingerprint?); // NEW: Unified function for IP and/or fingerprint lookup
-await chat.getAllGuests(); // Admin only
-await chat.cleanupGuests(); // Clean expired
-```
-
-### `GuestManager`
-
-Manual guest management:
-
-```javascript
-import { GuestManager } from 'oblien/chat';
-
-const guestManager = new GuestManager({
-    storage?: StorageAdapter,
-    ttl?: number, // seconds
-    onGuestCreated?: (guest) => void,
-});
-
-// With dual-layer identification
-await guestManager.getOrCreateGuest(ip, fingerprint?, metadata?);
-
-// Find existing guest by IP and/or fingerprint
-await guestManager.findExistingGuest(fingerprint, ip);
-
-await guestManager.getGuest(guestId);
-await guestManager.updateGuest(guestId, updates);
-await guestManager.deleteGuest(guestId);
-await guestManager.getAllGuests();
-await guestManager.cleanup();
-```
+---
 
 ## Complete Example
 
-### Express Server
-
 ```javascript
-import express from 'express';
-import { OblienClient, OblienChat } from 'oblien';
+// Import client and modules
+import { OblienClient } from 'oblien';
+import { OblienAgents } from 'oblien/agents';
+import { OblienChat } from 'oblien/chat';
+import { OblienSandboxes } from 'oblien/sandbox';
 
-const app = express();
-app.use(express.json());
-
-// Initialize Oblien
+// Initialize
 const client = new OblienClient({
-    apiKey: process.env.OBLIEN_API_KEY,
-    apiSecret: process.env.OBLIEN_API_SECRET,
+    apiKey: 'your-client-id',
+    apiSecret: 'your-client-secret'
 });
 
+const agents = new OblienAgents(client);
 const chat = new OblienChat(client);
+const sandboxes = new OblienSandboxes(client);
 
-// Create authenticated session
-app.post('/api/session', async (req, res) => {
-    try {
-        const session = await chat.createSession({
-            agentId: req.body.agentId,
-            namespace: req.user.id, // Pass user ID as namespace
-        });
-
-        res.json(session);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Create guest session with dual-layer identification
-app.post('/api/guest-session', async (req, res) => {
-    try {
-        const ip = req.ip || req.headers['x-forwarded-for'];
-        const fingerprint = req.body.fingerprint; // From client
-        
-        // Check for existing guest first
-        const existingGuest = await chat.getGuest(ip, fingerprint);
-        
-        if (existingGuest && existingGuest.sessions.length > 0) {
-            // Return existing session if available
-            const latestSession = existingGuest.sessions[existingGuest.sessions.length - 1];
-            const sessionDetails = await chat.getSession(latestSession);
-            
-            if (sessionDetails?.token) {
-                return res.json({
-                    ...sessionDetails,
-                    isExisting: true,
-                });
-            }
+async function main() {
+    // 1. Create agent with tools
+    const agent = await agents.create({
+        name: 'Code Assistant',
+        namespace: 'production',
+        prompts: {
+            identity: 'You are a coding assistant.'
         }
-        
-        // Create new guest session
-        const session = await chat.createGuestSession({
-            ip,
-            fingerprint,
-            agentId: req.body.agentId,
-            metadata: {
-                userAgent: req.headers['user-agent'],
-            },
-        });
+    });
 
-        res.json(session);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+    // Configure agent
+    const agentInstance = agents.agent(agent.agentId);
+    await agentInstance.settings.updateTools(['web-search', 'calculator']);
+    await agentInstance.settings.updateModelConfig({
+        temperature: 0.7,
+        max_tokens: 3000
+    });
 
-app.listen(3000);
+    // 2. Create sandbox for code execution
+    const sandbox = await sandboxes.create({
+        name: 'code-env',
+        template: 'node-20',
+        autoStart: true
+    });
+
+    // 3. Create chat session
+    const session = await chat.createSession({
+        agentId: agent.agentId,
+        namespace: 'production'
+    });
+
+    console.log('Setup complete!');
+    console.log('- Agent ID:', agent.agentId);
+    console.log('- Sandbox URL:', sandbox.sandbox.url);
+    console.log('- Session ID:', session.sessionId);
+}
+
+main();
 ```
 
-### Next.js API Route
+---
+
+## Module Structure
+
+```
+oblien/
+├── src/
+│   ├── agents/          # Agents management
+│   │   ├── index.js     # OblienAgents class
+│   │   ├── agent.js     # Agent instance
+│   │   ├── settings.js  # AgentSettings class
+│   │   └── tools.js     # Tools class
+│   ├── chat/            # Chat sessions
+│   │   ├── index.js     # OblienChat class
+│   │   └── session.js   # ChatSession class
+│   ├── sandbox/         # Sandboxes management
+│   │   ├── index.js     # OblienSandboxes class
+│   │   └── sandbox.js   # Sandbox instance
+│   ├── namespaces/      # Namespaces management
+│   ├── credits/         # Credits & billing
+│   └── client.js        # OblienClient (base)
+├── docs/                # Documentation
+│   ├── AGENTS_COMPLETE.md
+│   ├── SANDBOXES.md
+│   ├── CHAT.md
+│   └── NAMESPACES.md
+└── examples/            # Usage examples
+    ├── agents-complete-example.js
+    ├── sandbox-example.js
+    └── chat-example.js
+```
+
+---
+
+## API Endpoints
+
+| Module | Base Path | Operations |
+|--------|-----------|------------|
+| **Agents** | `/ai/agents` | CRUD, settings, tools, analytics |
+| **Chat** | `/ai/session` | Create, list, history |
+| **Sandboxes** | `/sandbox` | CRUD, start/stop/restart, metrics |
+| **Tools** | `/ai/tools` | List, search, create |
+| **Namespaces** | `/namespaces` | CRUD, services, usage |
+
+---
+
+## Authentication
+
+All modules use client credentials authentication:
 
 ```javascript
-// pages/api/session.js
-import { OblienClient, OblienChat } from 'oblien';
-
 const client = new OblienClient({
-    apiKey: process.env.OBLIEN_API_KEY,
-    apiSecret: process.env.OBLIEN_API_SECRET,
+    apiKey: 'your-client-id',        // X-Client-ID header
+    apiSecret: 'your-client-secret'  // X-Client-Secret header
 });
+```
 
-const chat = new OblienChat(client);
+Get your credentials from the [Oblien Dashboard](https://dashboard.oblien.com).
 
-export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+---
 
-    try {
-        // For guests
-        if (!req.headers.authorization) {
-            const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-            const fingerprint = req.body.fingerprint;
-            
-            const session = await chat.createGuestSession({
-                ip,
-                fingerprint, // Dual-layer identification
-                agentId: req.body.agentId,
-            });
+## TypeScript Support
 
-            return res.json(session);
-        }
+The SDK includes TypeScript definitions:
 
-        // For authenticated users
-        const session = await chat.createSession({
-            agentId: req.body.agentId,
-            namespace: req.user.id, // User ID for tracking
-        });
+```typescript
+import { 
+    OblienClient, 
+    OblienAgents, 
+    Agent,
+    AgentSettings,
+    Tools,
+    OblienSandboxes,
+    Sandbox
+} from 'oblien';
 
-        res.json(session);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+const client: OblienClient = new OblienClient({
+    apiKey: string,
+    apiSecret: string
+});
+```
+
+---
+
+## Error Handling
+
+```javascript
+try {
+    const agent = await agents.create({ /* ... */ });
+} catch (error) {
+    console.error('Error:', error.message);
+    
+    if (error.message.includes('401')) {
+        // Authentication failed
+    } else if (error.message.includes('404')) {
+        // Resource not found
+    } else if (error.message.includes('429')) {
+        // Rate limit exceeded
     }
 }
 ```
 
-## Environment Variables
+---
 
-```bash
-OBLIEN_API_KEY=your-api-key
-OBLIEN_API_SECRET=your-api-secret
-OBLIEN_BASE_URL=https://api.oblien.com  # Optional
-```
+## Best Practices
 
-## Storage Comparison
+1. **Reuse Client**: Create one client instance and share across modules
+2. **Error Handling**: Always wrap API calls in try-catch
+3. **Token Management**: For sandboxes, refresh tokens before 1h expiry
+4. **Resource Cleanup**: Stop/delete unused sandboxes and sessions
+5. **Namespace Organization**: Use namespaces to separate environments
+6. **Tool Validation**: Validate tools before assigning to agents
 
-| Feature | NodeCache (Default) | InMemory | Redis |
-|---------|-------------------|----------|-------|
-| **Setup** | ✅ Zero config | ✅ Zero config | ⚠️ Requires Redis |
-| **Auto-expiry** | ✅ Yes | ✅ Manual | ✅ Yes |
-| **Memory limit** | ✅ Configurable | ❌ No | ✅ Configurable |
-| **Statistics** | ✅ Yes | ❌ No | ⚠️ Via Redis |
-| **Distributed** | ❌ Single instance | ❌ Single instance | ✅ Multi-server |
-| **Persistence** | ❌ Memory only | ❌ Memory only | ✅ Disk backup |
-| **Production** | ✅ Recommended | ❌ Dev only | ✅ High-traffic |
-
-### When to Use What:
-
-- **NodeCache**: Most applications, single server, < 100K guests/day ✅ Recommended
-- **InMemory**: Development, testing, quick prototypes
-- **Redis**: Distributed systems, > 1M guests/day, need persistence
+---
 
 ## Examples
 
-Check the `/examples` folder for complete examples:
-
-- `raw.js` - Complete test suite demonstrating all features
-- `express-server.js` - Full Express.js implementation
-- `nextjs-api-route.js` - Next.js API routes (App Router & Pages Router)
-- `with-redis.js` - Production setup with Redis
-
-Run the test example:
-```bash
-cd node_modules/oblien
-node examples/raw.js
-```
-
-## TypeScript Support
-
-Full TypeScript definitions included:
-
-```typescript
-import { OblienClient, OblienChat } from 'oblien';
-
-const client: OblienClient = new OblienClient({
-    apiKey: string,
-    apiSecret?: string,
-});
-
-const chat: OblienChat = new OblienChat(client);
-```
-
-## FAQ
-
-### Q: Do I need Redis?
-
-**A:** No! NodeCache works great for most applications. Use Redis only if you need multi-server support or very high traffic.
-
-### Q: How does guest rate limiting work?
-
-**A:** Guest sessions are automatically rate-limited by the Oblien API based on the `namespace` (guest ID). Limits:
-- 100K tokens/day
-- 50 messages/day  
-- 20 messages/hour
-
-### Q: How does dual-layer identification work?
-
-**A:** The package tracks guests using both IP address and browser fingerprint:
+### Multi-Agent System
 
 ```javascript
-// First visit: Creates guest with IP + fingerprint
-await chat.createGuestSession({
-    ip: '1.2.3.4',
-    fingerprint: 'abc123',
-    agentId: 'agent-id',
+// Create specialized agents
+const coder = await agents.create({
+    name: 'Coder',
+    prompts: { identity: 'Expert coder' }
 });
 
-// Same user, different IP (e.g., mobile network)
-// → Same guest detected by fingerprint ✅
-await chat.createGuestSession({
-    ip: '5.6.7.8',        // Different IP
-    fingerprint: 'abc123', // Same fingerprint
-    agentId: 'agent-id',
+const reviewer = await agents.create({
+    name: 'Reviewer',
+    prompts: { identity: 'Code reviewer' }
 });
 
-// Same user, different fingerprint (e.g., cleared browser data)
-// → Same guest detected by IP ✅
-await chat.createGuestSession({
-    ip: '1.2.3.4',        // Same IP
-    fingerprint: 'xyz789', // Different fingerprint
-    agentId: 'agent-id',
-});
+// Configure each with specific tools
+await agents.agent(coder.agentId).settings.updateTools([
+    'web-search', 'code-interpreter'
+]);
+
+await agents.agent(reviewer.agentId).settings.updateTools([
+    'code-analyzer', 'security-scanner'
+]);
 ```
 
-### Q: Can I use custom guest IDs instead of IP?
-
-**A:** Yes! Pass it as the `namespace`:
+### Guest Chat System
 
 ```javascript
-await chat.createSession({
-    agentId: 'agent-id',
-    isGuest: true,
-    namespace: 'custom-guest-id',
+// Create agent for customer support
+const supportAgent = await agents.create({
+    name: 'Support Bot',
+    namespace: 'production'
+});
+
+// Set guest limits
+await agents.agent(supportAgent.agentId).settings.updateGuestLimits({
+    enabled: true,
+    max_messages_per_day: 100,
+    max_total_tokens_per_day: 50000
+});
+
+// Create guest session
+const session = await chat.createGuestSession({
+    ip: req.ip,
+    fingerprint: req.headers['x-fingerprint'],
+    agentId: supportAgent.agentId
 });
 ```
 
-### Q: How do I clean up expired guests?
-
-**A:** Call `chat.cleanupGuests()` periodically (e.g., cron job or `setInterval`).
-
-## Performance
-
-Benchmarks on standard server:
-
-- Session creation: ~50ms
-- Guest lookup (cached): ~1ms
-- Guest cleanup (1000 guests): ~100ms
-
-## Dependencies
-
-- `node-cache` - Built-in caching (included)
-- `redis` - Optional, for distributed systems (peer dependency)
-
-## License
-
-MIT
+---
 
 ## Links
 
-- [Documentation](https://oblien.com/docs/core-sdk)
-- [GitHub](https://github.com/oblien/oblien)
-- [Website](https://oblien.com)
-- [React Chat Agent](https://npmjs.com/package/react-chat-agent) - Client-side chat component
-- [Agent Sandbox](https://npmjs.com/package/agent-sandbox) - Sandbox SDK
-- [AI smart assets fetch](https://npmjs.com/package/assets-ai) - Assets AI
+- **Website**: https://oblien.com
+- **Documentation**: https://docs.oblien.com
+- **Dashboard**: https://dashboard.oblien.com
+- **API Reference**: https://api.oblien.com/docs
+- **Support**: support@oblien.com
+- **GitHub**: https://github.com/oblien/oblien
+
+---
+
+## License
+
+MIT License - see LICENSE file for details
+
+---
+
+## Changelog
+
+### v1.2.0
+- ✅ Added Sandboxes module
+- ✅ Enhanced Agents module with proper settings sections
+- ✅ Added Tools management
+- ✅ Improved documentation
+
+### v1.1.0
+- ✅ Added Agents module
+- ✅ Added Namespaces module
+- ✅ Guest session support
+
+### v1.0.0
+- ✅ Initial release
+- ✅ Chat module
+- ✅ Credits module
+
+---
+
+Made with ❤️ by the Oblien Team

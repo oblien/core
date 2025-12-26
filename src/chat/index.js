@@ -45,10 +45,9 @@ export class OblienChat {
     async createSession(options) {
         const session = new ChatSession({
             client: this.client,
-            ...options,
         });
 
-        return await session.create();
+        return await session.create(options);
     }
 
     /**
@@ -80,6 +79,9 @@ export class OblienChat {
         // Create session
         const session = new ChatSession({
             client: this.client,
+        });
+
+        const sessionData = await session.create({
             agentId,
             workflowId,
             workspace,
@@ -90,8 +92,6 @@ export class OblienChat {
             fingerprint: fingerprint,
             endUserId: endUserId,
         });
-
-        const sessionData = await session.create();
 
         // Link session to guest
         await this.guestManager.addSession(guest.id, sessionData.sessionId);
@@ -349,11 +349,23 @@ export class OblienChat {
     /**
      * List sessions
      * @param {Object} [options] - Query options
+     * @param {string} [options.namespace] - Filter by namespace
+     * @param {string} [options.agentId] - Filter by agent ID
+     * @param {string} [options.endUserId] - Filter by end user ID
+     * @param {number} [options.limit] - Number of results (max 100)
+     * @param {number} [options.offset] - Offset for pagination
+     * @param {string} [options.search] - Search in title and user ID
+     * @param {string} [options.sortBy] - Sort by 'time' or 'tokens'
+     * @param {string} [options.sortOrder] - 'asc' or 'desc'
+     * @param {boolean} [options.includeStats] - Include message count and tokens
      * @returns {Promise<Array>} Array of sessions
      */
     async listSessions(options = {}) {
-        const data = await this.client.get('ai/session', options);
-        return data.sessions || data;
+        const session = new ChatSession({
+            client: this.client,
+        });
+        
+        return await session.list(options);
     }
 
     /**

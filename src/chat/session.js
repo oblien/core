@@ -8,6 +8,19 @@ export class ChatSession {
      * @param {Object} options - Session options
      * @param {import('../client.js').OblienClient} options.client - Oblien client instance
      * @param {string} [options.sessionId] - Existing session ID
+     */
+    constructor({ client, sessionId = null }) {
+        if (!client) {
+            throw new Error('Oblien client is required');
+        }
+
+        this.client = client;
+        this.sessionId = sessionId;
+    }
+
+    /**
+     * Create session and get token for client
+     * @param {Object} options - Session creation options
      * @param {string} options.agentId - Agent ID to chat with
      * @param {string} [options.workflowId] - Workflow ID (if using workflow)
      * @param {boolean} [options.isGuest] - Is this a guest session
@@ -17,71 +30,30 @@ export class ChatSession {
      * @param {string} [options.userAgent] - User agent of the user
      * @param {string} [options.fingerprint] - Fingerprint of the user
      * @param {string} [options.endUserId] - End user ID (for client's end users)
+     * @returns {Promise<Object>} Session data with token for browser
      */
-    constructor(options) {
-        if (!options.client) {
-            throw new Error('Oblien client is required');
-        }
-
+    async create(options) {
         if (!options.agentId && !options.workflowId) {
             throw new Error('Either agentId or workflowId is required');
         }
 
-        this.client = options.client;
-        this.sessionId = options.sessionId || null;
-        this.agentId = options.agentId;
-        this.workflowId = options.workflowId;
-        this.isGuest = options.isGuest || false;
-        this.namespace = options.namespace;
-        this.workspace = options.workspace;
-        this.token = null;
-        this.data = null;
-        this.ipAddress = options.ipAddress || null;
-        this.userAgent = options.userAgent || null;
-        this.fingerprint = options.fingerprint || null;
-        this.endUserId = options.endUserId || null;
-    }
-
-    /**
-     * Create session and get token for client
-     * @returns {Promise<Object>} Session data with token for browser
-     */
-    async create() {
-        const payload = {
-            agent_id: this.agentId,
-            app_id: this.workflowId, // Backend uses app_id for workflow_id
-            is_guest: this.isGuest,
-            namespace: this.namespace,
-            workspace: this.workspace,
-            ip_address: this.ipAddress,
-            user_agent: this.userAgent,
-            fingerprint: this.fingerprint,
-            end_user_id: this.endUserId,
-        };
-
-        this.data = await this.client.post('ai/session/create', payload);
-        this.sessionId = this.data.sessionId || this.data.session_id;
-        this.token = this.data.token || this.data.accessToken || this.data.tokens?.token;
-
-        return {
-            sessionId: this.sessionId,
-            token: this.token,
-            agentId: this.data.agentId || this.agentId,
-            workflowId: this.data.workflowId || this.data.appId || this.workflowId,
-            namespace: this.namespace,
-        };
+        const data = await this.client.post('ai/session/create', options);
+        return data
     }
 
     /**
      * Get existing session info
-     * @param {string} sessionId - Session ID
+     * @param {string} [sessionId] - Session ID (uses instance sessionId if not provided)
      * @returns {Promise<Object>} Session details
      */
     async get(sessionId) {
-        this.data = await this.client.get(`ai/session/${sessionId || this.sessionId}`);
-        return this.data;
-    }
+        const id = sessionId || this.sessionId;
+        if (!id) {
+            throw new Error('Session ID required');
+        }
 
+        return await this.client.get(`ai/session/${id}`);
+    }
 
     /**
      * Delete session
@@ -100,11 +72,20 @@ export class ChatSession {
     /**
      * List all sessions
      * @param {Object} [options] - Query options
+     * @param {string} [options.namespace] - Filter by namespace
+     * @param {string} [options.agentId] - Filter by agent ID
+     * @param {string} [options.endUserId] - Filter by end user ID
+     * @param {number} [options.limit] - Number of results (max 100)
+     * @param {number} [options.offset] - Offset for pagination
+     * @param {string} [options.search] - Search in title and user ID
+     * @param {string} [options.sortBy] - Sort by 'time' or 'tokens'
+     * @param {string} [options.sortOrder] - 'asc' or 'desc'
+     * @param {boolean} [options.includeStats] - Include message count and tokens
      * @returns {Promise<Array>} Array of sessions
      */
     async list(options = {}) {
-        const data = await this.client.get('ai/session', options);
-        return data.sessions || data;
+        const data = await this.client.get('ai/session/list', options);
+        return data;
     }
 }
 

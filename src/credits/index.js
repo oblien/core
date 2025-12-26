@@ -123,6 +123,187 @@ export class OblienCredits {
     }
 
     // =============================================================================
+    // End User Quota Management (Optional Third Level)
+    // =============================================================================
+
+    /**
+     * Set quota for an end user within a namespace
+     * @param {Object} options - Quota options
+     * @param {string} options.namespace - Namespace slug
+     * @param {string} options.endUserId - End user ID
+     * @param {string} options.service - Service name (e.g., 'ai_chat', 'deployment', 'sandbox')
+     * @param {number} options.quotaLimit - Quota limit (null or 0 for unlimited)
+     * @param {string} [options.period] - Quota period: 'daily', 'monthly', 'unlimited'
+     * @returns {Promise<Object>} Created/updated end user quota
+     */
+    async setEndUserQuota(options) {
+        if (!options.namespace || !options.endUserId || !options.service) {
+            throw new Error('namespace, endUserId, and service are required');
+        }
+
+        if (options.quotaLimit === undefined) {
+            throw new Error('quotaLimit is required');
+        }
+
+        const response = await this.client.post('credits/end-users/quota', {
+            namespace: options.namespace,
+            endUserId: options.endUserId,
+            service: options.service,
+            quotaLimit: options.quotaLimit,
+            period: options.period || 'unlimited'
+        });
+
+        return response;
+    }
+
+    /**
+     * Get end user quota
+     * @param {string} namespace - Namespace slug
+     * @param {string} endUserId - End user ID
+     * @param {string} service - Service name
+     * @returns {Promise<Object>} End user quota details
+     */
+    async getEndUserQuota(namespace, endUserId, service) {
+        if (!namespace || !endUserId || !service) {
+            throw new Error('namespace, endUserId, and service are required');
+        }
+
+        const response = await this.client.get('credits/end-users/quota', {
+            namespace,
+            endUserId,
+            service
+        });
+
+        return response;
+    }
+
+    /**
+     * Reset end user quota usage
+     * @param {string} namespace - Namespace slug
+     * @param {string} endUserId - End user ID
+     * @param {string} service - Service name
+     * @returns {Promise<Object>} Reset result
+     */
+    async resetEndUserQuota(namespace, endUserId, service) {
+        if (!namespace || !endUserId || !service) {
+            throw new Error('namespace, endUserId, and service are required');
+        }
+
+        const response = await this.client.post('credits/end-users/reset', {
+            namespace,
+            endUserId,
+            service
+        });
+
+        return response;
+    }
+
+    // =============================================================================
+    // Default Quota Configuration (Dynamic, per client)
+    // =============================================================================
+
+    /**
+     * Set default quota configuration
+     * @param {Object} options - Configuration options
+     * @param {string} options.level - 'namespace' or 'end_user'
+     * @param {string} options.service - Service name (e.g., 'ai_chat', 'deployment')
+     * @param {number} options.quotaLimit - Default quota limit (null for unlimited)
+     * @param {string} [options.period] - 'daily', 'monthly', or 'unlimited'
+     * @param {boolean} [options.autoApply] - Auto-apply to new namespaces/users
+     * @returns {Promise<Object>} Configuration result
+     */
+    async setDefaultQuota(options) {
+        if (!options.level || !options.service || options.quotaLimit === undefined) {
+            throw new Error('level, service, and quotaLimit are required');
+        }
+
+        if (!['namespace', 'end_user'].includes(options.level)) {
+            throw new Error('level must be "namespace" or "end_user"');
+        }
+
+        const response = await this.client.post('credits/defaults', {
+            level: options.level,
+            service: options.service,
+            quotaLimit: options.quotaLimit,
+            period: options.period || 'unlimited',
+            autoApply: options.autoApply !== undefined ? options.autoApply : true,
+        });
+
+        return response;
+    }
+
+    /**
+     * Get default quota configuration
+     * @param {string} level - 'namespace' or 'end_user'
+     * @param {string} service - Service name
+     * @returns {Promise<Object>} Configuration details
+     */
+    async getDefaultQuota(level, service) {
+        if (!level || !service) {
+            throw new Error('level and service are required');
+        }
+
+        const response = await this.client.get('credits/defaults', {
+            level,
+            service,
+        });
+
+        return response;
+    }
+
+    /**
+     * Get all default quota configurations
+     * @param {string} [level] - Optional: filter by 'namespace' or 'end_user'
+     * @returns {Promise<Object>} All configurations
+     */
+    async getAllDefaultQuotas(level = null) {
+        const params = level ? { level } : {};
+        const response = await this.client.get('credits/defaults/all', params);
+        return response;
+    }
+
+    /**
+     * Delete default quota configuration
+     * @param {string} level - 'namespace' or 'end_user'
+     * @param {string} service - Service name
+     * @returns {Promise<Object>} Deletion result
+     */
+    async deleteDefaultQuota(level, service) {
+        if (!level || !service) {
+            throw new Error('level and service are required');
+        }
+
+        // DELETE with body
+        const response = await this.client.delete('credits/defaults', {
+            level,
+            service,
+        });
+
+        return response;
+    }
+
+    /**
+     * Toggle auto-apply for default quota
+     * @param {string} level - 'namespace' or 'end_user'
+     * @param {string} service - Service name
+     * @param {boolean} autoApply - Enable/disable auto-apply
+     * @returns {Promise<Object>} Toggle result
+     */
+    async toggleDefaultQuotaAutoApply(level, service, autoApply) {
+        if (!level || !service || autoApply === undefined) {
+            throw new Error('level, service, and autoApply are required');
+        }
+
+        const response = await this.client.post('credits/defaults/toggle-auto-apply', {
+            level,
+            service,
+            autoApply,
+        });
+
+        return response;
+    }
+
+    // =============================================================================
     // Usage History & Transactions
     // =============================================================================
 

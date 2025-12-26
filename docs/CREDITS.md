@@ -145,6 +145,74 @@ await credits.resetQuota('production', 'ai');
 
 ---
 
+## End User Quota Management (Optional Third Level)
+
+Manage quotas for individual end users within namespaces. This is completely optional and only used when you need per-user limits.
+
+### `setEndUserQuota(options)`
+
+Set quota for a specific end user within a namespace.
+
+```javascript
+await credits.setEndUserQuota({
+    namespace: 'production',
+    endUserId: 'user_123',
+    service: 'ai_chat',
+    quotaLimit: 1000,       // null or 0 for unlimited
+    period: 'monthly',      // daily, monthly, unlimited
+});
+```
+
+**Parameters:**
+- `namespace` (string, required): Namespace slug
+- `endUserId` (string, required): End user ID
+- `service` (string, required): Service name (e.g., 'ai_chat', 'deployment')
+- `quotaLimit` (number, required): Quota limit
+- `period` (string, optional): Quota period (default: 'unlimited')
+
+---
+
+### `getEndUserQuota(namespace, endUserId, service)`
+
+Get end user quota details.
+
+```javascript
+const quota = await credits.getEndUserQuota(
+    'production',
+    'user_123',
+    'ai_chat'
+);
+
+console.log('Limit:', quota.quota.limit);
+console.log('Used:', quota.quota.used);
+console.log('Remaining:', quota.quota.remaining);
+console.log('Period:', quota.quota.period);
+```
+
+**Parameters:**
+- `namespace` (string, required): Namespace slug
+- `endUserId` (string, required): End user ID
+- `service` (string, required): Service name
+
+**Returns:** `Promise<Object>` - Quota details
+
+---
+
+### `resetEndUserQuota(namespace, endUserId, service)`
+
+Reset end user quota usage.
+
+```javascript
+await credits.resetEndUserQuota('production', 'user_123', 'ai_chat');
+```
+
+**Parameters:**
+- `namespace` (string, required): Namespace slug
+- `endUserId` (string, required): End user ID
+- `service` (string, required): Service name
+
+---
+
 ## Usage History & Transactions
 
 ### `getHistory(options)`
@@ -449,6 +517,92 @@ await credits.setQuota({
 
 // Track usage
 const stats = await credits.getUsageStats({ days: 7 });
+```
+
+---
+
+## Three-Level Usage Management
+
+The credits system supports three levels of usage tracking:
+
+1. **Client Level** - Overall balance (what you purchased)
+2. **Namespace Level** - Quota per workspace/project
+3. **End User Level** - Quota per individual user (optional)
+
+### Example: Multi-Level Setup
+
+```javascript
+// Level 1: Client has 100,000 credits
+const balance = await credits.getBalance();
+console.log('Total balance:', balance);
+
+// Level 2: Set namespace quota (5,000 credits/month)
+await credits.setQuota({
+    namespace: 'production',
+    service: 'ai_chat',
+    quotaLimit: 5000,
+    period: 'monthly',
+});
+
+// Level 3: Set per-user quotas within namespace
+await credits.setEndUserQuota({
+    namespace: 'production',
+    endUserId: 'user_123',
+    service: 'ai_chat',
+    quotaLimit: 1000,
+    period: 'monthly',
+});
+
+await credits.setEndUserQuota({
+    namespace: 'production',
+    endUserId: 'user_456',
+    service: 'ai_chat',
+    quotaLimit: 500,
+    period: 'monthly',
+});
+
+// Get usage filtered by end user
+const userHistory = await credits.getHistory({
+    namespace: 'production',
+    endUserId: 'user_123',
+    service: 'ai_chat',
+});
+
+console.log('User 123 usage:', userHistory.data.length);
+```
+
+### Example: SaaS with Per-User Limits
+
+```javascript
+// Your SaaS has a client with multiple end users
+const CLIENT_ID = 'acme_corp';
+const NAMESPACE = 'production';
+
+// Set namespace-wide quota
+await credits.setQuota({
+    namespace: NAMESPACE,
+    service: 'ai_chat',
+    quotaLimit: 50000,  // Total for all users
+    period: 'monthly',
+});
+
+// Set individual user limits
+const users = ['john', 'jane', 'bob'];
+for (const userId of users) {
+    await credits.setEndUserQuota({
+        namespace: NAMESPACE,
+        endUserId: userId,
+        service: 'ai_chat',
+        quotaLimit: 1000,  // Per user limit
+        period: 'monthly',
+    });
+}
+
+// Monitor individual user usage
+for (const userId of users) {
+    const quota = await credits.getEndUserQuota(NAMESPACE, userId, 'ai_chat');
+    console.log(`${userId}: ${quota.quota.used}/${quota.quota.limit}`);
+}
 ```
 
 ---

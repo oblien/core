@@ -396,6 +396,42 @@ export interface SetQuotaOptions {
     period?: 'daily' | 'monthly' | 'unlimited';
 }
 
+export interface SetEndUserQuotaOptions {
+    namespace: string;
+    endUserId: string;
+    service: string;
+    quotaLimit: number;
+    period?: 'daily' | 'monthly' | 'unlimited';
+}
+
+export interface EndUserQuota {
+    limit: number;
+    used: number;
+    remaining: number;
+    period: string;
+    enabled: boolean;
+}
+
+export interface SetDefaultQuotaOptions {
+    level: 'namespace' | 'end_user';
+    service: string;
+    quotaLimit: number | null;
+    period?: 'daily' | 'monthly' | 'unlimited';
+    autoApply?: boolean;
+}
+
+export interface DefaultQuotaConfig {
+    id: number;
+    level: 'namespace' | 'end_user';
+    service: string;
+    quotaLimit: number | null;
+    period: string;
+    autoApply: boolean;
+    enabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface HistoryOptions {
     namespace?: string;
     endUserId?: string;
@@ -456,6 +492,18 @@ export class OblienCredits {
     getNamespaceDetails(namespace: string, options?: { days?: number }): Promise<any>;
     setQuota(options: SetQuotaOptions): Promise<QuotaData>;
     resetQuota(namespace: string, service: string): Promise<any>;
+    
+    // End User Quota Management (Optional Third Level)
+    setEndUserQuota(options: SetEndUserQuotaOptions): Promise<any>;
+    getEndUserQuota(namespace: string, endUserId: string, service: string): Promise<{ success: boolean; quota: EndUserQuota | null }>;
+    resetEndUserQuota(namespace: string, endUserId: string, service: string): Promise<any>;
+    
+    // Default Quota Configuration (Dynamic, per client)
+    setDefaultQuota(options: SetDefaultQuotaOptions): Promise<any>;
+    getDefaultQuota(level: 'namespace' | 'end_user', service: string): Promise<{ success: boolean; config: DefaultQuotaConfig | null }>;
+    getAllDefaultQuotas(level?: 'namespace' | 'end_user'): Promise<{ success: boolean; configs: DefaultQuotaConfig[] }>;
+    deleteDefaultQuota(level: 'namespace' | 'end_user', service: string): Promise<any>;
+    toggleDefaultQuotaAutoApply(level: 'namespace' | 'end_user', service: string, autoApply: boolean): Promise<any>;
     
     // Usage History & Transactions
     getHistory(options?: HistoryOptions): Promise<{ success: boolean; data: CreditTransaction[]; pagination: any }>;

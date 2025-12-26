@@ -103,6 +103,61 @@ async function resetQuota() {
 }
 
 // =============================================================================
+// Example 5a: Set End User Quota (Optional Third Level)
+// =============================================================================
+
+async function setEndUserQuota() {
+    try {
+        const quota = await credits.setEndUserQuota({
+            namespace: 'production',
+            endUserId: 'user_123',
+            service: 'ai_chat',
+            quotaLimit: 1000,
+            period: 'monthly',
+        });
+
+        console.log('End user quota set:', quota);
+    } catch (error) {
+        console.error('Error setting end user quota:', error.message);
+    }
+}
+
+// =============================================================================
+// Example 5b: Get End User Quota
+// =============================================================================
+
+async function getEndUserQuota() {
+    try {
+        const quota = await credits.getEndUserQuota(
+            'production',
+            'user_123',
+            'ai_chat'
+        );
+
+        console.log('End user quota:');
+        console.log('- Limit:', quota.quota.limit);
+        console.log('- Used:', quota.quota.used);
+        console.log('- Remaining:', quota.quota.remaining);
+        console.log('- Period:', quota.quota.period);
+    } catch (error) {
+        console.error('Error getting end user quota:', error.message);
+    }
+}
+
+// =============================================================================
+// Example 5c: Reset End User Quota
+// =============================================================================
+
+async function resetEndUserQuota() {
+    try {
+        await credits.resetEndUserQuota('production', 'user_123', 'ai_chat');
+        console.log('End user quota reset successfully');
+    } catch (error) {
+        console.error('Error resetting end user quota:', error.message);
+    }
+}
+
+// =============================================================================
 // Example 6: Get Usage History
 // =============================================================================
 
@@ -399,6 +454,139 @@ async function completeWorkflow() {
 }
 
 // =============================================================================
+// Example 21: Multi-Level Usage Management (Client > Namespace > End User)
+// =============================================================================
+
+async function multiLevelManagement() {
+    try {
+        console.log('=== Multi-Level Usage Management ===\n');
+
+        // Level 1: Client Balance
+        const balance = await credits.getBalance();
+        console.log('Level 1 - Client Balance:', balance, 'credits\n');
+
+        // Level 2: Namespace Quotas
+        console.log('Level 2 - Setting Namespace Quotas:');
+        await credits.setQuota({
+            namespace: 'production',
+            service: 'ai_chat',
+            quotaLimit: 50000,
+            period: 'monthly',
+        });
+        console.log('✓ Production namespace: 50,000 credits/month\n');
+
+        // Level 3: End User Quotas (optional)
+        console.log('Level 3 - Setting End User Quotas:');
+        
+        // Set quota for user_123
+        await credits.setEndUserQuota({
+            namespace: 'production',
+            endUserId: 'user_123',
+            service: 'ai_chat',
+            quotaLimit: 1000,
+            period: 'monthly',
+        });
+        console.log('✓ User 123: 1,000 credits/month');
+
+        // Set quota for user_456
+        await credits.setEndUserQuota({
+            namespace: 'production',
+            endUserId: 'user_456',
+            service: 'ai_chat',
+            quotaLimit: 500,
+            period: 'monthly',
+        });
+        console.log('✓ User 456: 500 credits/month\n');
+
+        // Monitor usage per end user
+        console.log('Monitoring End User Usage:');
+        const users = ['user_123', 'user_456'];
+        
+        for (const userId of users) {
+            const quota = await credits.getEndUserQuota('production', userId, 'ai_chat');
+            const used = quota.quota.used;
+            const limit = quota.quota.limit;
+            const remaining = quota.quota.remaining;
+            const percentage = ((used / limit) * 100).toFixed(1);
+            
+            console.log(`- ${userId}: ${used}/${limit} (${percentage}% used, ${remaining} remaining)`);
+            
+            // Get user's transaction history
+            const history = await credits.getHistory({
+                namespace: 'production',
+                endUserId: userId,
+                service: 'ai_chat',
+                limit: 5,
+            });
+            console.log(`  Recent transactions: ${history.data.length}`);
+        }
+
+        console.log('\n✅ Multi-level management complete!');
+    } catch (error) {
+        console.error('Error in multi-level management:', error.message);
+    }
+}
+
+// =============================================================================
+// Example 22: SaaS Use Case - Manage Customer End Users
+// =============================================================================
+
+async function saasUseCase() {
+    try {
+        console.log('=== SaaS Use Case: Customer End User Management ===\n');
+
+        const CUSTOMER_NAMESPACE = 'customer_acme';
+        const SERVICE = 'ai_chat';
+
+        // 1. Set customer-wide quota (namespace level)
+        console.log('1. Setting customer-wide quota:');
+        await credits.setQuota({
+            namespace: CUSTOMER_NAMESPACE,
+            service: SERVICE,
+            quotaLimit: 100000,
+            period: 'monthly',
+        });
+        console.log('✓ Customer quota: 100,000 credits/month\n');
+
+        // 2. Set individual user limits
+        console.log('2. Setting per-user limits:');
+        const endUsers = [
+            { id: 'employee_john', limit: 5000 },
+            { id: 'employee_jane', limit: 3000 },
+            { id: 'employee_bob', limit: 2000 },
+        ];
+
+        for (const user of endUsers) {
+            await credits.setEndUserQuota({
+                namespace: CUSTOMER_NAMESPACE,
+                endUserId: user.id,
+                service: SERVICE,
+                quotaLimit: user.limit,
+                period: 'monthly',
+            });
+            console.log(`✓ ${user.id}: ${user.limit} credits/month`);
+        }
+
+        // 3. Monitor and report
+        console.log('\n3. Usage Report:');
+        let totalUsed = 0;
+        
+        for (const user of endUsers) {
+            const quota = await credits.getEndUserQuota(CUSTOMER_NAMESPACE, user.id, SERVICE);
+            totalUsed += quota.quota.used;
+            
+            const percentage = ((quota.quota.used / quota.quota.limit) * 100).toFixed(1);
+            console.log(`- ${user.id}: ${quota.quota.used}/${quota.quota.limit} (${percentage}%)`);
+        }
+
+        console.log(`\nTotal customer usage: ${totalUsed} credits`);
+        console.log('✅ SaaS use case complete!');
+    } catch (error) {
+        console.error('Error in SaaS use case:', error.message);
+    }
+}
+
+// =============================================================================
 // Run examples
 // =============================================================================
 
@@ -413,6 +601,8 @@ async function runExamples() {
     // Uncomment to test other examples:
     // await createCheckout();
     // await getPurchaseHistory();
+    // await multiLevelManagement();
+    // await saasUseCase();
 }
 
 // Run if called directly
@@ -426,6 +616,9 @@ export {
     getNamespaceDetails,
     setQuota,
     resetQuota,
+    setEndUserQuota,
+    getEndUserQuota,
+    resetEndUserQuota,
     getHistory,
     getFilters,
     getSummary,
@@ -441,5 +634,7 @@ export {
     getPurchaseSession,
     cancelPurchase,
     completeWorkflow,
+    multiLevelManagement,
+    saasUseCase,
 };
 

@@ -126,15 +126,22 @@ export class OblienClient {
     /**
      * Make DELETE request
      * @param {string} path - API path
+     * @param {Object} [body] - Request body
      * @returns {Promise<any>} Response data
      */
-    async delete(path) {
+    async delete(path, body = null) {
         const headers = this.getAuthHeaders();
         
-        const response = await fetch(this._buildURL(path), {
+        const options = {
             method: 'DELETE',
             headers,
-        });
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+        
+        const response = await fetch(this._buildURL(path), options);
 
         return this._handleResponse(response);
     }

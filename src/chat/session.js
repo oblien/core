@@ -16,6 +16,7 @@ export class ChatSession {
      * @param {string} [options.ipAddress] - IP address of the user
      * @param {string} [options.userAgent] - User agent of the user
      * @param {string} [options.fingerprint] - Fingerprint of the user
+     * @param {string} [options.endUserId] - End user ID (for client's end users)
      */
     constructor(options) {
         if (!options.client) {
@@ -38,6 +39,7 @@ export class ChatSession {
         this.ipAddress = options.ipAddress || null;
         this.userAgent = options.userAgent || null;
         this.fingerprint = options.fingerprint || null;
+        this.endUserId = options.endUserId || null;
     }
 
     /**
@@ -54,6 +56,7 @@ export class ChatSession {
             ip_address: this.ipAddress,
             user_agent: this.userAgent,
             fingerprint: this.fingerprint,
+            end_user_id: this.endUserId,
         };
 
         this.data = await this.client.post('ai/session/create', payload);

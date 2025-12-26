@@ -25,9 +25,8 @@ import { OblienCredits } from 'oblien/credits';
 
 // Initialize client
 const client = new OblienClient({
-    apiKey: 'your-client-id',
-    apiSecret: 'your-client-secret',
-    baseURL: 'https://api.oblien.com'  // Optional
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret'
 });
 
 // Use modules
@@ -88,7 +87,7 @@ const overview = await agentInstance.getOverview({ days: 7 });
 
 ### 💬 Chat Module
 
-Create and manage chat sessions with guest support.
+Create sessions, send messages, and manage guests with streaming support.
 
 ```javascript
 import { OblienChat } from 'oblien/chat';
@@ -101,6 +100,27 @@ const session = await chat.createSession({
     namespace: 'production'
 });
 
+// Send message with streaming
+await chat.send({
+    token: session.token,
+    message: 'Tell me about AI',
+    stream: true,
+    onChunk: (data) => console.log(data)
+});
+
+// Upload files
+const uploadResult = await chat.upload({
+    token: session.token,
+    files: fileArray
+});
+
+// Send message with uploaded files
+await chat.send({
+    token: session.token,
+    message: 'Analyze these files',
+    uploadId: uploadResult.uploadId
+});
+
 // Create guest session
 const guestSession = await chat.createGuestSession({
     ip: '192.168.1.1',
@@ -108,17 +128,20 @@ const guestSession = await chat.createGuestSession({
     agentId: 'agent-id'
 });
 
-// List sessions
-const sessions = await chat.listSessions({ limit: 20 });
+// Get guest usage
+const usage = await chat.getGuestUsage(guestSession.token);
 ```
 
 **Features:**
-- ✅ Session management
-- ✅ Guest sessions with fingerprint tracking
-- ✅ Token generation
-- ✅ Automatic guest ID generation
+- ✅ Session management (create, list, delete)
+- ✅ Message sending with streaming support
+- ✅ File uploads for agent analysis
+- ✅ Guest sessions with IP + fingerprint tracking
+- ✅ Guest usage monitoring and rate limiting
+- ✅ Hybrid mode (works with token or client credentials)
+- ✅ Cache statistics for monitoring
 
-📖 [Documentation](./docs/CHAT.md) | 💡 [Examples](./examples/chat-example.js)
+📖 [Full Documentation](./docs/CHAT.md) | 💡 [Examples](./examples/chat-example.js)
 
 ---
 
@@ -284,8 +307,8 @@ import { OblienSandboxes } from 'oblien/sandbox';
 
 // Initialize
 const client = new OblienClient({
-    apiKey: 'your-client-id',
-    apiSecret: 'your-client-secret'
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret'
 });
 
 const agents = new OblienAgents(client);
@@ -384,8 +407,8 @@ All modules use client credentials authentication:
 
 ```javascript
 const client = new OblienClient({
-    apiKey: 'your-client-id',        // X-Client-ID header
-    apiSecret: 'your-client-secret'  // X-Client-Secret header
+    clientId: 'your-client-id',        // X-Client-ID header
+    clientSecret: 'your-client-secret'  // X-Client-Secret header
 });
 ```
 
@@ -409,8 +432,8 @@ import {
 } from 'oblien';
 
 const client: OblienClient = new OblienClient({
-    apiKey: string,
-    apiSecret: string
+    clientId: string,
+    clientSecret: string
 });
 ```
 
@@ -517,6 +540,14 @@ MIT License - see LICENSE file for details
 ---
 
 ## Changelog
+
+### v1.3.0 (Latest)
+- ✅ Added `send()` method to Chat module with streaming support
+- ✅ Added `upload()` method for file attachments
+- ✅ Added guest usage monitoring (`getGuestUsage()`)
+- ✅ Added cache statistics (`getCacheStatistics()`)
+- ✅ Hybrid mode support (token or client credentials)
+- ✅ Complete Chat documentation with examples
 
 ### v1.2.0
 - ✅ Added Sandboxes module

@@ -5,10 +5,9 @@
 // ============ Client Types ============
 
 export interface OblienConfig {
-    apiKey: string;
-    apiSecret?: string;
+    clientId: string;
+    clientSecret: string;
     baseURL?: string;
-    version?: string;
 }
 
 export class OblienClient {
@@ -101,6 +100,10 @@ export interface SessionOptions {
     isGuest?: boolean;
     namespace?: string;
     workspace?: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
+    fingerprint?: string;
+    endUserId?: string;
 }
 
 export interface SessionData {
@@ -136,6 +139,11 @@ export interface CreateSessionOptions {
     workflowId?: string;
     namespace?: string; // For authenticated users, typically user_id
     workspace?: Record<string, any>;
+    endUserId?: string;
+    isGuest?: boolean;
+    ipAddress?: string;
+    userAgent?: string;
+    fingerprint?: string;
 }
 
 export interface CreateGuestSessionOptions {
@@ -145,6 +153,7 @@ export interface CreateGuestSessionOptions {
     workflowId?: string;
     metadata?: Record<string, any>;
     workspace?: Record<string, any>;
+    endUserId?: string;
 }
 
 export interface GuestSessionData extends SessionData {
@@ -155,17 +164,60 @@ export interface GuestSessionData extends SessionData {
     };
 }
 
+export interface SendMessageOptions {
+    token?: string;
+    message: string;
+    uploadId?: string;
+    files?: any[];
+    stream?: boolean;
+    onChunk?: (data: any) => void;
+    onError?: (error: Error) => void;
+    onComplete?: () => void;
+    metadata?: Record<string, any>;
+}
+
+export interface UploadOptions {
+    token?: string;
+    files: any[] | any;
+    metadata?: Record<string, any>;
+}
+
+export interface GuestUsageInfo {
+    success: boolean;
+    namespace: string;
+    requestCount: number;
+    limit: number;
+    remaining: number;
+    resetAt?: Date;
+}
+
+export interface CacheStatistics {
+    success: boolean;
+    cache: {
+        keys: number;
+        hits: number;
+        misses: number;
+        hitRate: number;
+        keysSize: number;
+        valuesSize: number;
+    };
+}
+
 export class OblienChat {
     constructor(client: OblienClient, options?: ChatOptions);
     
     createSession(options: CreateSessionOptions): Promise<SessionData>;
     createGuestSession(options: CreateGuestSessionOptions): Promise<GuestSessionData>;
     getGuest(ip: string, fingerprint?: string): Promise<Guest | null>;
+    send(options: SendMessageOptions): Promise<any>;
+    upload(options: UploadOptions): Promise<any>;
     getSession(sessionId: string): Promise<any>;
     listSessions(options?: Record<string, any>): Promise<any[]>;
     deleteSession(sessionId: string): Promise<any>;
     getAllGuests(): Promise<Guest[]>;
     cleanupGuests(): Promise<number>;
+    getGuestUsage(token: string): Promise<GuestUsageInfo>;
+    getCacheStatistics(): Promise<CacheStatistics>;
 }
 
 // ============ Namespaces ============

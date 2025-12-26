@@ -6,21 +6,19 @@
 export class OblienClient {
     /**
      * @param {Object} config - Configuration options
-     * @param {string} config.apiKey - Your Oblien Client ID (x-client-id)
-     * @param {string} config.apiSecret - Your Oblien Client Secret (x-client-secret)
-     * @param {string} [config.baseURL] - Base URL for API (default: https://api.oblien.com)
-     * @param {string} [config.version] - API version (default: v1)
+     * @param {string} config.clientId - Your Oblien Client ID (x-client-id)
+     * @param {string} config.clientSecret - Your Oblien Client Secret (x-client-secret)
      */
     constructor(config) {
-        if (!config || !config.apiKey) {
-            throw new Error('Oblien API key (client ID) is required');
+        if (!config || !config.clientId) {
+            throw new Error('Oblien client ID is required');
         }
-        if (!config.apiSecret) {
-            throw new Error('Oblien API secret (client secret) is required');
+        if (!config.clientSecret) {
+            throw new Error('Oblien client secret is required');
         }
 
-        this.clientId = config.apiKey;
-        this.clientSecret = config.apiSecret;
+        this.clientId = config.clientId;
+        this.clientSecret = config.clientSecret;
         this.baseURL = config.baseURL || 'https://api.oblien.com';
     }
 
